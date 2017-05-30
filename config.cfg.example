@@ -1,0 +1,3 @@
+TVDB_KEY = 'XXXXXXXXXXX'
+HOME = '/home/user/to_sort/'
+MOVED = '/home/user/to_sort/done/'
