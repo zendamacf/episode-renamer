@@ -42,7 +42,7 @@ def main():
 	with open('config.cfg') as f:
 		content = f.readlines()
 	for line in content:
-		(key, value) = line.split(' = ')
+		(key, value) = line.replace('\n','').split(' = ')
 		config[key] = value
 
 	now = datetime.datetime.today()

@@ -111,12 +111,14 @@ def winsafe_filename(filename):
 	return re.sub(r'[\\/:"*?<>|]+', "", filename)
 
 def main():
+	print('Running renamr...')
 	with open('config.cfg') as f:
 		content = f.readlines()
 	for line in content:
-		(key, value) = line.split(' = ')
+		(key, value) = line.replace('\n','').split(' = ')
 		config[key] = value
 
+	print('Checking for files in %s' % config['HOME'])
 	for f in os.listdir(config['HOME']):
 		if os.path.isfile(os.path.join(config['HOME'],f)) and f.rsplit('.',1)[1] in ACCEPTED_EXTENSIONS:
 			try:
