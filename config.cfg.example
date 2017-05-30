@@ -1,3 +1,5 @@
 TVDB_KEY = 'XXXXXXXXXXX'
 HOME = '/home/user/to_sort/'
 MOVED = '/home/user/to_sort/done/'
+CURR_LOC = '/home/user/shows/current/'
+SCHED_LOC = '/home/user/shows/'
