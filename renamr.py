@@ -41,9 +41,17 @@ def parse_filename(filename):
 	if rename:
 		rename_and_move(filename, rename, show, season)
 
+def get_headers():
+	headers = { 
+		'Content-Type':'application/json', 
+		'Accept':'application/json', 
+		'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+	}
+	return headers
+
 def login():
 	data = { 'apikey':config['TVDB_KEY'], 'userkey':config['TVDB_USER'], 'username':config['TVDB_NAME'] }
-	headers = { 'content-type':'application/json' }
+	headers = get_headers()
 	r = requests.post('https://api.thetvdb.com/login', data=json.dumps(data), headers=headers).text
 	resp = json.loads(r)
 	if 'Error' in resp:
@@ -52,7 +60,8 @@ def login():
 
 def get_seriesid(show):
 	params = { 'name':show }
-	headers = { 'content-type':'application/json', 'Authorization':'Bearer %s' % config['TVDB_TOKEN'] }
+	headers = get_headers()
+	headers['Authorization'] = 'Bearer %s' % config['TVDB_TOKEN']
 	r = requests.get('https://api.thetvdb.com/search/series', params=params, headers=headers).text
 	resp = json.loads(r)
 
@@ -80,7 +89,8 @@ def get_seriesid(show):
 			
 def get_episode(seriesid, season, episode):
 	params = { 'airedSeason':season, 'airedEpisode':episode }
-	headers = { 'content-type':'application/json', 'Authorization':'Bearer %s' % config['TVDB_TOKEN'] }
+	headers = get_headers()
+	headers['Authorization'] = 'Bearer %s' % config['TVDB_TOKEN']
 	r = requests.get('https://api.thetvdb.com/series/%s/episodes/query' % seriesid, params=params, headers=headers).text
 	resp = json.loads(r)
 
