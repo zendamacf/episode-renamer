@@ -12,7 +12,7 @@ SERIES_PARSER = [
 	re.compile("^(?P<show>.*?)(?P<season>\d+)x(?P<episode>\d+).*\.(?P<extension>.*?)$", re.IGNORECASE),
 	re.compile("^(?P<show>(?:.*?\D|))(?P<season>\d{1,2})(?P<episode>\d{2})(?:\D.*|)\.(?P<extension>.*?)$", re.IGNORECASE),
 	]
-ACCEPTED_EXTENSIONS = ['mp4', 'flv', 'avi', 'mkv']
+ACCEPTED_EXTENSIONS = ['mp4', 'flv', 'avi', 'mkv', 'm4v']
 
 def parse_filename(filename):
 	for parser in SERIES_PARSER:
@@ -115,9 +115,9 @@ def check_with_user(filename, season, episode, episodename, extension):
 	new_filename = 'S%sE%s - %s.%s' % (season, episode, episodename, extension)
 	print('Current: %s' % (filename,))
 	print('New: %s' % (new_filename,))
-	choice = input('Confirm change? ("n" for no, "i" to ignore): ').strip()
-	if choice.lower() == 'i' or choice.lower() == 'n':
-		raise Exception('Ignoring %s' % (filename,))
+	# choice = input('Confirm change? ("n" for no, "i" to ignore): ').strip()
+	# if choice.lower() == 'i' or choice.lower() == 'n':
+	# 	raise Exception('Ignoring %s' % (filename,))
 	return winsafe_filename(new_filename)
 
 def rename_and_move(filename, new_filename, show, season):
