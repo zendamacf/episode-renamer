@@ -11,6 +11,9 @@ import requests
 
 CONFIG = {}
 
+class RenamrException(Exception):
+    pass
+
 def parse_filename(filename):
 	"""
 	Uses regex to pull series name, season and episode numbers
@@ -28,7 +31,7 @@ def parse_filename(filename):
 		except AttributeError:
 			continue
 	else:
-		raise Exception('Filename %s not matched.' % (filename,))
+		raise RenamrException('Filename %s not matched.' % (filename,))
 
 	show = match_dict['show'].replace('.', ' ').strip()
 	season = str(int(match_dict['season']))
@@ -37,10 +40,10 @@ def parse_filename(filename):
 
 	seriesid, show = get_seriesid(show)
 	if seriesid is None or show is None:
-		raise Exception('Ignoring %s' % (filename,))
+		raise RenamrException('Ignoring %s' % (filename,))
 	episodename = get_episode(seriesid, season, episode)
 	if episodename is None:
-		raise Exception('Couldn\'t find %s S%sE%s.' % (show, season, episode,))
+		raise RenamrException('Couldn\'t find %s S%sE%s.' % (show, season, episode,))
 
 	rename = check_with_user(filename, season, episode, episodename, extension)
 	if rename:
@@ -67,10 +70,13 @@ def login():
 		'username':CONFIG['TVDB_NAME']
 	}
 	headers = get_headers()
-	resp = requests.post('https://api.thetvdb.com/login', data=json.dumps(data), headers=headers).text
+	response = requests.post('https://api.thetvdb.com/login', data=json.dumps(data), headers=headers)
+	if response.status_code == 503:
+		raise RenamrException('TVDB currently down. Please try again later.')
+	resp = response.text
 	resp = json.loads(resp)
 	if 'Error' in resp:
-		raise Exception(resp['Error'])
+		raise RenamrException(resp['Error'])
 	return resp['token']
 
 def get_seriesid(show):
@@ -85,12 +91,12 @@ def get_seriesid(show):
 	resp = json.loads(resp)
 
 	if 'Error' in resp:
-		raise Exception(resp['Error'])
+		raise RenamrException(resp['Error'])
 
 	found = resp['data']
 
 	if not found:
-		raise Exception('No series matches for %s' % (show,))
+		raise RenamrException('No series matches for %s' % (show,))
 	elif len(found) == 1:
 		return found[0]['id'], found[0]['seriesName']
 	else:
@@ -102,7 +108,7 @@ def get_seriesid(show):
 		elif choice == 'i':
 			return None, None
 		elif int(choice) < 1 or int(choice) > len(found):
-			raise Exception('Invalid input.')
+			raise RenamrException('Invalid input.')
 		else:
 			return found[int(choice)-1]['id'], found[int(choice)-1]['seriesName']
 
@@ -118,7 +124,7 @@ def get_episode(seriesid, season, episode):
 	resp = json.loads(resp)
 
 	if 'Error' in resp:
-		raise Exception(resp['Error'])
+		raise RenamrException(resp['Error'])
 
 	found = resp['data']
 
@@ -143,7 +149,7 @@ def check_with_user(filename, season, episode, episodename, extension):
 	print('New: %s' % (new_filename,))
 	# choice = input('Confirm change? ("n" for no, "i" to ignore): ').strip()
 	# if choice.lower() == 'i' or choice.lower() == 'n':
-	# 	raise Exception('Ignoring %s' % (filename,))
+	# 	raise RenamrException('Ignoring %s' % (filename,))
 	return winsafe_filename(new_filename)
 
 def rename_and_move(filename, new_filename, show, season):
@@ -159,7 +165,7 @@ def rename_and_move(filename, new_filename, show, season):
 	curr_file = os.path.join(CONFIG['HOME'], filename)
 	new_file = os.path.join(season_folder, new_filename)
 	if os.path.exists(new_file):
-		raise Exception('%s already Exists.' % (new_file,))
+		raise RenamrException('%s already Exists.' % (new_file,))
 	shutil.move(curr_file, new_file)
 	print('Successfully moved.')
 
@@ -180,12 +186,15 @@ def main():
 		(key, value) = line.replace('\n', '').split(' = ')
 		CONFIG[key] = value
 
-	CONFIG['TVDB_TOKEN'] = login()
+	try:
+		CONFIG['TVDB_TOKEN'] = login()
 
-	print('Checking for files in %s' % CONFIG['HOME'])
-	for file in os.listdir(CONFIG['HOME']):
-		if os.path.isfile(os.path.join(CONFIG['HOME'], file)):
-			if file.rsplit('.', 1)[1] in ['mp4', 'flv', 'avi', 'mkv', 'm4v']:
-				parse_filename(file)
+		print('Checking for files in %s' % CONFIG['HOME'])
+		for file in os.listdir(CONFIG['HOME']):
+			if os.path.isfile(os.path.join(CONFIG['HOME'], file)):
+				if file.rsplit('.', 1)[1] in ['mp4', 'flv', 'avi', 'mkv', 'm4v']:
+						parse_filename(file)
+	except RenamrException as err:
+		print(err)
 
 main()
