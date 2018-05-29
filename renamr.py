@@ -1,22 +1,27 @@
+"""
+Searches for tv show episode files, and renames & sorts, them
+using information from thetvdb
+"""
+
 import re
 import os
 import shutil
-import requests
 import json
+import requests
 
-config = {}
-token = None
-
-SERIES_PARSER = [
-	re.compile("^(?P<show>.*?)s *(?P<season>\d+) *e *(?P<episode>\d+).*\.(?P<extension>.*?)$", re.IGNORECASE),
-	re.compile("^(?P<show>.*?)(?P<season>\d+)x(?P<episode>\d+).*\.(?P<extension>.*?)$", re.IGNORECASE),
-	re.compile("^(?P<show>(?:.*?\D|))(?P<season>\d{1,2})(?P<episode>\d{2})(?:\D.*|)\.(?P<extension>.*?)$", re.IGNORECASE),
-	]
-ACCEPTED_EXTENSIONS = ['mp4', 'flv', 'avi', 'mkv', 'm4v']
+CONFIG = {}
 
 def parse_filename(filename):
-	for parser in SERIES_PARSER:
-		matches = parser.search(filename)
+	"""
+	Uses regex to pull series name, season and episode numbers
+	"""
+	regex_parsers = [
+		r"^(?P<show>.*?)s *(?P<season>\d+) *e *(?P<episode>\d+).*\.(?P<extension>.*?)$",
+		r"^(?P<show>.*?)(?P<season>\d+)x(?P<episode>\d+).*\.(?P<extension>.*?)$",
+		r"^(?P<show>(?:.*?\D|))(?P<season>\d{1,2})(?P<episode>\d{2})(?:\D.*|)\.(?P<extension>.*?)$",
+	]
+	for parser in regex_parsers:
+		matches = re.compile(parser, re.IGNORECASE).search(filename)
 		try:
 			match_dict = matches.groupdict()
 			break
@@ -35,48 +40,62 @@ def parse_filename(filename):
 		raise Exception('Ignoring %s' % (filename,))
 	episodename = get_episode(seriesid, season, episode)
 	if episodename is None:
-		raise Exception('Couldn\'t find %s S%sE%s.' % (show,season,episode,))
+		raise Exception('Couldn\'t find %s S%sE%s.' % (show, season, episode,))
 
 	rename = check_with_user(filename, season, episode, episodename, extension)
 	if rename:
 		rename_and_move(filename, rename, show, season)
 
 def get_headers():
-	headers = { 
-		'Content-Type':'application/json', 
-		'Accept':'application/json', 
+	"""
+	Gets headers needed for tvdb request
+	"""
+	headers = {
+		'Content-Type':'application/json',
+		'Accept':'application/json',
 		'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
 	}
 	return headers
 
 def login():
-	data = { 'apikey':config['TVDB_KEY'], 'userkey':config['TVDB_USER'], 'username':config['TVDB_NAME'] }
+	"""
+	Makes login request to tvdb, required for their REST API
+	"""
+	data = {
+		'apikey':CONFIG['TVDB_KEY'],
+		'userkey':CONFIG['TVDB_USER'],
+		'username':CONFIG['TVDB_NAME']
+	}
 	headers = get_headers()
-	r = requests.post('https://api.thetvdb.com/login', data=json.dumps(data), headers=headers).text
-	resp = json.loads(r)
+	resp = requests.post('https://api.thetvdb.com/login', data=json.dumps(data), headers=headers).text
+	resp = json.loads(resp)
 	if 'Error' in resp:
 		raise Exception(resp['Error'])
 	return resp['token']
 
 def get_seriesid(show):
-	params = { 'name':show }
+	"""
+	Finds series in tvdb
+	Will prompt user to select series if multiple found
+	"""
+	params = {'name':show}
 	headers = get_headers()
-	headers['Authorization'] = 'Bearer %s' % config['TVDB_TOKEN']
-	r = requests.get('https://api.thetvdb.com/search/series', params=params, headers=headers).text
-	resp = json.loads(r)
+	headers['Authorization'] = 'Bearer %s' % CONFIG['TVDB_TOKEN']
+	resp = requests.get('https://api.thetvdb.com/search/series', params=params, headers=headers).text
+	resp = json.loads(resp)
 
 	if 'Error' in resp:
 		raise Exception(resp['Error'])
 
 	found = resp['data']
 
-	if len(found) == 0:
+	if not found:
 		raise Exception('No series matches for %s' % (show,))
 	elif len(found) == 1:
 		return found[0]['id'], found[0]['seriesName']
 	else:
-		for i in range(0, len(found)):
-			print('(%s) %s' % (i+1, found[i]['seriesName']))
+		for count, value in enumerate(found):
+			print('(%s) %s' % (count+1, value['seriesName']))
 		choice = input('Select correct series for %s ("i" to ignore): ' % (show,)).strip()
 		if choice == '':
 			return found[0]['id'], found[0]['seriesName']
@@ -86,13 +105,17 @@ def get_seriesid(show):
 			raise Exception('Invalid input.')
 		else:
 			return found[int(choice)-1]['id'], found[int(choice)-1]['seriesName']
-			
+
 def get_episode(seriesid, season, episode):
-	params = { 'airedSeason':season, 'airedEpisode':episode }
+	"""
+	Gets episode information
+	"""
+	params = {'airedSeason':season, 'airedEpisode':episode}
 	headers = get_headers()
-	headers['Authorization'] = 'Bearer %s' % config['TVDB_TOKEN']
-	r = requests.get('https://api.thetvdb.com/series/%s/episodes/query' % seriesid, params=params, headers=headers).text
-	resp = json.loads(r)
+	headers['Authorization'] = 'Bearer %s' % CONFIG['TVDB_TOKEN']
+	url = 'https://api.thetvdb.com/series/%s/episodes/query' % seriesid
+	resp = requests.get(url, params=params, headers=headers).text
+	resp = json.loads(resp)
 
 	if 'Error' in resp:
 		raise Exception(resp['Error'])
@@ -101,13 +124,16 @@ def get_episode(seriesid, season, episode):
 
 	episode_name = None
 
-	for e in found:
-		if int(e['airedSeason']) == int(season) and int(e['airedEpisodeNumber']) == int(episode):
-			episode_name = e['episodeName']
+	for epi in found:
+		if int(epi['airedSeason']) == int(season) and int(epi['airedEpisodeNumber']) == int(epi):
+			episode_name = epi['episodeName']
 
 	return episode_name
 
 def check_with_user(filename, season, episode, episodename, extension):
+	"""
+	Notify user of filename change
+	"""
 	if int(season) < 10:
 		season = '0' + season
 	if int(episode) < 10:
@@ -121,13 +147,16 @@ def check_with_user(filename, season, episode, episodename, extension):
 	return winsafe_filename(new_filename)
 
 def rename_and_move(filename, new_filename, show, season):
-	show_folder = os.path.join(config['MOVED'], show)
+	"""
+	Rename and sort the file into folders
+	"""
+	show_folder = os.path.join(CONFIG['MOVED'], show)
 	if not os.path.exists(show_folder):
 		os.makedirs(show_folder)
 	season_folder = os.path.join(show_folder, 'Season %s' % (season,))
 	if not os.path.exists(season_folder):
 		os.makedirs(season_folder)
-	curr_file = os.path.join(config['HOME'], filename)
+	curr_file = os.path.join(CONFIG['HOME'], filename)
 	new_file = os.path.join(season_folder, new_filename)
 	if os.path.exists(new_file):
 		raise Exception('%s already Exists.' % (new_file,))
@@ -135,24 +164,28 @@ def rename_and_move(filename, new_filename, show, season):
 	print('Successfully moved.')
 
 def winsafe_filename(filename):
+	"""
+	Make a windows-safe filename
+	"""
 	return re.sub(r'[\\/:"*?<>|]+', "", filename)
 
 def main():
+	"""
+	Main function
+	"""
 	print('Running renamr...')
-	with open('config.cfg') as f:
-		content = f.readlines()
+	with open('config.cfg') as file:
+		content = file.readlines()
 	for line in content:
-		(key, value) = line.replace('\n','').split(' = ')
-		config[key] = value
+		(key, value) = line.replace('\n', '').split(' = ')
+		CONFIG[key] = value
 
-	config['TVDB_TOKEN'] = login()
+	CONFIG['TVDB_TOKEN'] = login()
 
-	print('Checking for files in %s' % config['HOME'])
-	for f in os.listdir(config['HOME']):
-		if os.path.isfile(os.path.join(config['HOME'],f)) and f.rsplit('.',1)[1] in ACCEPTED_EXTENSIONS:
-			try:
-				parse_filename(f)
-			except Exception as e:
-				print(e)
+	print('Checking for files in %s' % CONFIG['HOME'])
+	for file in os.listdir(CONFIG['HOME']):
+		if os.path.isfile(os.path.join(CONFIG['HOME'], file)):
+			if file.rsplit('.', 1)[1] in ['mp4', 'flv', 'avi', 'mkv', 'm4v']:
+				parse_filename(file)
 
 main()
