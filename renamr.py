@@ -131,7 +131,7 @@ def get_episode(seriesid, season, episode):
 	episode_name = None
 
 	for epi in found:
-		if int(epi['airedSeason']) == int(season) and int(epi['airedEpisodeNumber']) == int(epi):
+		if int(epi['airedSeason']) == int(season) and int(epi['airedEpisodeNumber']) == int(episode):
 			episode_name = epi['episodeName']
 
 	return episode_name
