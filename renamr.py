@@ -11,8 +11,10 @@ import requests
 
 CONFIG = {}
 
+
 class RenamrException(Exception):
-    pass
+	pass
+
 
 def parse_filename(filename):
 	"""
@@ -49,25 +51,27 @@ def parse_filename(filename):
 	if rename:
 		rename_and_move(filename, rename, show, season)
 
+
 def get_headers():
 	"""
 	Gets headers needed for tvdb request
 	"""
 	headers = {
-		'Content-Type':'application/json',
-		'Accept':'application/json',
-		'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
+		'Content-Type': 'application/json',
+		'Accept': 'application/json',
+		'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36'
 	}
 	return headers
+
 
 def login():
 	"""
 	Makes login request to tvdb, required for their REST API
 	"""
 	data = {
-		'apikey':CONFIG['TVDB_KEY'],
-		'userkey':CONFIG['TVDB_USER'],
-		'username':CONFIG['TVDB_NAME']
+		'apikey': CONFIG['TVDB_KEY'],
+		'userkey': CONFIG['TVDB_USER'],
+		'username': CONFIG['TVDB_NAME']
 	}
 	headers = get_headers()
 	response = requests.post('https://api.thetvdb.com/login', data=json.dumps(data), headers=headers)
@@ -79,12 +83,13 @@ def login():
 		raise RenamrException(resp['Error'])
 	return resp['token']
 
+
 def get_seriesid(show):
 	"""
 	Finds series in tvdb
 	Will prompt user to select series if multiple found
 	"""
-	params = {'name':show}
+	params = {'name': show}
 	headers = get_headers()
 	headers['Authorization'] = 'Bearer %s' % CONFIG['TVDB_TOKEN']
 	resp = requests.get('https://api.thetvdb.com/search/series', params=params, headers=headers).text
@@ -101,8 +106,8 @@ def get_seriesid(show):
 		return found[0]['id'], found[0]['seriesName']
 	else:
 		for count, value in enumerate(found):
-			print('(%s) %s' % (count+1, value['seriesName']))
-		choice = input('Select correct series for %s ("i" to ignore): ' % (show,)).strip()
+			print('(%s) %s' % (count + 1, value['seriesName']))
+		choice = input('Select correct series for %s ("i" to ignore): ' % (show,))
 		if choice == '':
 			return found[0]['id'], found[0]['seriesName']
 		elif choice == 'i':
@@ -110,13 +115,14 @@ def get_seriesid(show):
 		elif int(choice) < 1 or int(choice) > len(found):
 			raise RenamrException('Invalid input.')
 		else:
-			return found[int(choice)-1]['id'], found[int(choice)-1]['seriesName']
+			return found[int(choice) - 1]['id'], found[int(choice) - 1]['seriesName']
+
 
 def get_episode(seriesid, season, episode):
 	"""
 	Gets episode information
 	"""
-	params = {'airedSeason':season, 'airedEpisode':episode}
+	params = {'airedSeason': season, 'airedEpisode': episode}
 	headers = get_headers()
 	headers['Authorization'] = 'Bearer %s' % CONFIG['TVDB_TOKEN']
 	url = 'https://api.thetvdb.com/series/%s/episodes/query' % seriesid
@@ -136,6 +142,7 @@ def get_episode(seriesid, season, episode):
 
 	return episode_name
 
+
 def check_with_user(filename, season, episode, episodename, extension):
 	"""
 	Notify user of filename change
@@ -147,10 +154,8 @@ def check_with_user(filename, season, episode, episodename, extension):
 	new_filename = 'S%sE%s - %s.%s' % (season, episode, episodename, extension)
 	print('Current: %s' % (filename,))
 	print('New: %s' % (new_filename,))
-	# choice = input('Confirm change? ("n" for no, "i" to ignore): ').strip()
-	# if choice.lower() == 'i' or choice.lower() == 'n':
-	# 	raise RenamrException('Ignoring %s' % (filename,))
 	return winsafe_filename(new_filename)
+
 
 def rename_and_move(filename, new_filename, show, season):
 	"""
@@ -169,11 +174,13 @@ def rename_and_move(filename, new_filename, show, season):
 	shutil.move(curr_file, new_file)
 	print('Successfully moved.')
 
+
 def winsafe_filename(filename):
 	"""
 	Make a windows-safe filename
 	"""
 	return re.sub(r'[\\/:"*?<>|]+', "", filename)
+
 
 def main():
 	"""
@@ -196,5 +203,6 @@ def main():
 						parse_filename(file)
 	except RenamrException as err:
 		print(err)
+
 
 main()
