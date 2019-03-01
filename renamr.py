@@ -33,7 +33,7 @@ def parse_filename(filename):
 		except AttributeError:
 			continue
 	else:
-		raise RenamrException('Filename %s not matched.' % (filename,))
+		raise RenamrException('Filename not matched.')
 
 	show = match_dict['show'].replace('.', ' ').strip()
 	season = str(int(match_dict['season']))
@@ -42,7 +42,7 @@ def parse_filename(filename):
 
 	seriesid, show = get_seriesid(show)
 	if seriesid is None or show is None:
-		raise RenamrException('Ignoring %s' % (filename,))
+		raise RenamrException('Ignoring file.')
 	episodename = get_episode(seriesid, season, episode)
 	if episodename is None:
 		raise RenamrException('Couldn\'t find %s S%sE%s.' % (show, season, episode,))
@@ -193,16 +193,16 @@ def main():
 		(key, value) = line.replace('\n', '').split(' = ')
 		CONFIG[key] = value
 
-	try:
-		CONFIG['TVDB_TOKEN'] = login()
+	CONFIG['TVDB_TOKEN'] = login()
 
-		print('Checking for files in %s' % CONFIG['HOME'])
-		for file in os.listdir(CONFIG['HOME']):
-			if os.path.isfile(os.path.join(CONFIG['HOME'], file)):
-				if file.rsplit('.', 1)[1] in ['mp4', 'flv', 'avi', 'mkv', 'm4v']:
+	print('Checking for files in %s' % CONFIG['HOME'])
+	for file in os.listdir(CONFIG['HOME']):
+		if os.path.isfile(os.path.join(CONFIG['HOME'], file)):
+			if file.rsplit('.', 1)[1] in ['mp4', 'flv', 'avi', 'mkv', 'm4v']:
+					try:
 						parse_filename(file)
-	except RenamrException as err:
-		print(err)
+					except RenamrException as err:
+						print('{}: {}'.format(file, err))
 
 
 main()
