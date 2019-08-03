@@ -8,6 +8,7 @@ import os
 import shutil
 import json
 import requests
+from datetime import datetime
 
 CONFIG = {}
 
@@ -40,16 +41,16 @@ def parse_filename(filename):
 	episode = str(int(match_dict['episode']))
 	extension = match_dict['extension']
 
-	seriesid, show = get_seriesid(show)
+	seriesid, show, year = get_seriesid(show)
 	if seriesid is None or show is None:
 		raise RenamrException('Ignoring file.')
 	episodename = get_episode(seriesid, season, episode)
 	if episodename is None:
 		raise RenamrException('Couldn\'t find %s S%sE%s.' % (show, season, episode,))
 
-	rename = check_with_user(filename, season, episode, episodename, extension)
+	rename = notify_user(filename, season, episode, episodename, extension)
 	if rename:
-		rename_and_move(filename, rename, show, season)
+		rename_and_move(filename, rename, show, year, season)
 
 
 def get_headers():
@@ -103,19 +104,21 @@ def get_seriesid(show):
 	if not found:
 		raise RenamrException('No series matches for %s' % (show,))
 	elif len(found) == 1:
-		return found[0]['id'], found[0]['seriesName']
+		chosen = found[0]
 	else:
 		for count, value in enumerate(found):
 			print('(%s) %s' % (count + 1, value['seriesName']))
 		choice = input('Select correct series for %s ("i" to ignore): ' % (show,))
 		if choice == '':
 			return found[0]['id'], found[0]['seriesName']
+			chosen = found[0]
 		elif choice == 'i':
-			return None, None
+			return None, None, None
 		elif int(choice) < 1 or int(choice) > len(found):
 			raise RenamrException('Invalid input.')
 		else:
-			return found[int(choice) - 1]['id'], found[int(choice) - 1]['seriesName']
+			chosen = found[int(choice) - 1]
+	return chosen['id'], strip_year(chosen['seriesName']), extract_year(chosen['firstAired'])
 
 
 def get_episode(seriesid, season, episode):
@@ -143,7 +146,7 @@ def get_episode(seriesid, season, episode):
 	return episode_name
 
 
-def check_with_user(filename, season, episode, episodename, extension):
+def notify_user(filename, season, episode, episodename, extension):
 	"""
 	Notify user of filename change
 	"""
@@ -157,11 +160,11 @@ def check_with_user(filename, season, episode, episodename, extension):
 	return winsafe_filename(new_filename)
 
 
-def rename_and_move(filename, new_filename, show, season):
+def rename_and_move(filename, new_filename, show, year, season):
 	"""
 	Rename and sort the file into folders
 	"""
-	show_folder = os.path.join(CONFIG['MOVED'], show)
+	show_folder = os.path.join(CONFIG['MOVED'], '%s (%s)' % (show, year))
 	if not os.path.exists(show_folder):
 		os.makedirs(show_folder)
 	season_folder = os.path.join(show_folder, 'Season %s' % (season,))
@@ -180,6 +183,20 @@ def winsafe_filename(filename):
 	Make a windows-safe filename
 	"""
 	return re.sub(r'[\\/:"*?<>|]+', "", filename)
+
+
+def strip_year(nam):
+	"""
+	Removes year from show title
+	"""
+	return re.sub(r"\([0-9]{4}\)", '', nam).strip()
+
+
+def extract_year(dat):
+	"""
+	Extracts year from an ISO date string
+	"""
+	return datetime.strptime(dat, "%Y-%m-%d").year
 
 
 def main():
