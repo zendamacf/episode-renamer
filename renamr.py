@@ -110,7 +110,6 @@ def get_seriesid(show):
 			print('(%s) %s' % (count + 1, value['seriesName']))
 		choice = input('Select correct series for %s ("i" to ignore): ' % (show,))
 		if choice == '':
-			return found[0]['id'], found[0]['seriesName']
 			chosen = found[0]
 		elif choice == 'i':
 			return None, None, None
