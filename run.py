@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import file_io as io
-import tvdb
+import moviedb
 
 
 def main():
@@ -16,10 +16,8 @@ def main():
 		print('No files found')
 		return
 
-	tvdb_token = tvdb.login(config['TVDB_KEY'], config['TVDB_USER'], config['TVDB_NAME'])
-
 	for f in found:
-		series_list = tvdb.get_series(f['name'], tvdb_token)
+		series_list = moviedb.get_series(f['name'], config['MOVIEDB_KEY'])
 		if not series_list:
 			print('No series matches for {}'.format(f['name']))
 			continue
@@ -32,7 +30,12 @@ def main():
 				print('Ignoring {}'.format(f['name']))
 				continue
 
-		episodename = tvdb.get_episode(chosen['id'], f['season'], f['episode'], tvdb_token)
+		episodename = moviedb.get_episode(
+			chosen['id'],
+			f['season'],
+			f['episode'],
+			config['MOVIEDB_KEY']
+		)
 		if episodename is None:
 			print('No episode found for {} S{}E{}'.format(f['name'], f['season'], f['episode']))
 			continue
