@@ -1,7 +1,5 @@
 {
-    "TVDB_KEY": "XXXXXXXXXXX",
-    "TVDB_USER": "XXXXXXXXXXX",
-    "TVDB_NAME": "XXXXXXXXXXX",
+    "MOVIEDB_KEY": "XXXXXXXXXXXXXXXXXXX",
     "HOME": "/home/user/to_sort/",
-    "MOVED": "/home/zach/to_sort/done/"
+    "MOVED": "/home/user/to_sort/done/"
 }
