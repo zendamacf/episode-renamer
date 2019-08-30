@@ -72,6 +72,10 @@ def get_series(query: str, apikey: str) -> list:
 
 	found = []
 	for r in response['results']:
+		if 'first_air_date' not in r:
+			print('Ignoring missing airdate {}.'.format(r['name']))
+			continue
+
 		found.append({
 			'id': r['id'],
 			'name': _strip_year(r['name']),
