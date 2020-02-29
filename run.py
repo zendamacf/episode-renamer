@@ -16,19 +16,30 @@ def main():
 		print('No files found')
 		return
 
-	for f in found:
-		series_list = moviedb.get_series(f['name'], config['MOVIEDB_KEY'])
-		if not series_list:
-			print('No series matches for {}'.format(f['name']))
-			continue
+	matches = {}
 
-		if len(series_list) == 1:
-			chosen = series_list[0]
+	for f in found:
+		if f['name'] in matches:
+			# Have previously used this series, so use it again
+			chosen = matches[f['name']]
+			print(f"Using previous match {chosen['name']} for {f['name']}")
 		else:
-			chosen = io.prompt_user(f['name'], series_list)
-			if chosen is None:
-				print('Ignoring {}'.format(f['name']))
+			# New series, so look it up
+			series_list = moviedb.get_series(f['name'], config['MOVIEDB_KEY'])
+			if not series_list:
+				print('No series matches for {}'.format(f['name']))
 				continue
+
+			if len(series_list) == 1:
+				chosen = series_list[0]
+			else:
+				chosen = io.prompt_user(f['name'], series_list)
+				if chosen is None:
+					print('Ignoring {}'.format(f['name']))
+					continue
+
+			# Save for future lookups
+			matches[f['name']] = chosen
 
 		episodename = moviedb.get_episode(
 			chosen['id'],
