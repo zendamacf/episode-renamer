@@ -48,9 +48,9 @@ def parse_filename(filename: str) -> dict:
 	Uses regex to pull series name, season and episode numbers
 	"""
 	regex_parsers = [
-		r"^(?P<show>.*?)s *(?P<season>\d+) *e *(?P<episode>\d+).*\.(?P<extension>.*?)$",
-		r"^(?P<show>.*?)(?P<season>\d+)x(?P<episode>\d+).*\.(?P<extension>.*?)$",
-		r"^(?P<show>(?:.*?\D|))(?P<season>\d{1,2})(?P<episode>\d{2})(?:\D.*|)\.(?P<extension>.*?)$",
+		r"^(?P<name>.*?)s *(?P<s>\d+) *e *(?P<e>\d+).*\.(?P<ext>.*?)$",
+		r"^(?P<name>.*?)(?P<s>\d+)x(?P<e>\d+).*\.(?P<ext>.*?)$",
+		r"^(?P<name>(?:.*?\D|))(?P<s>\d{1,2})(?P<e>\d{2})(?:\D.*|)\.(?P<ext>.*?)$",
 	]
 	for parser in regex_parsers:
 		matches = re.compile(parser, re.IGNORECASE).search(filename)
@@ -63,11 +63,11 @@ def parse_filename(filename: str) -> dict:
 		raise FileIOException('Filename not matched.')
 
 	return {
-		'name': match_dict['show'].replace('.', ' ').strip(),
-		'season': int(match_dict['season']),
-		'episode': int(match_dict['episode']),
+		'name': match_dict['name'].replace('.', ' ').strip(),
+		'season': int(match_dict['s']),
+		'episode': int(match_dict['e']),
 		'filename': filename,
-		'extension': match_dict['extension']
+		'extension': match_dict['ext']
 	}
 
 
@@ -80,7 +80,7 @@ def prompt_user(orig_name: str, series_list: list) -> dict:
 			print('({}) {} ({})'.format(count + 1, value['name'], value['year']))
 		else:
 			print('({}) {}'.format(count + 1, value['name']))
-	choice = input('Select correct series for {} ("i" to ignore): '.format(orig_name,))
+	choice = input(f'Select correct series for {orig_name} ("i" to ignore): ')
 	if choice == '':
 		chosen = series_list[0]
 	elif choice == 'i':
@@ -114,7 +114,7 @@ def get_filename(
 		season = '0{}'.format(season)
 	if int(episode) < 10:
 		episode = '0{}'.format(episode)
-	new_filename = 'S{}E{} - {}.{}'.format(season, episode, episodename, extension)
+	new_filename = f'S{season}E{episode} - {episodename}.{extension}'
 	print('Current: {}'.format(filename))
 	print('New: {}'.format(new_filename))
 	return winsafe_filename(new_filename)

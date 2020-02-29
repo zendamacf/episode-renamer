@@ -37,7 +37,7 @@ def main():
 			config['MOVIEDB_KEY']
 		)
 		if episodename is None:
-			print('No episode found for {} S{}E{}'.format(f['name'], f['season'], f['episode']))
+			print(f"No episode found for {f['name']} S{f['season']}E{f['episode']}")
 			continue
 
 		new_filename = io.get_filename(
