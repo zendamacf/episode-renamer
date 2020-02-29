@@ -29,7 +29,7 @@ def find_files(directory) -> list:
 	"""
 	print('Checking for files in {}'.format(directory))
 	found = []
-	for filename in os.listdir(directory):
+	for filename in sorted(os.listdir(directory), key=str.lower):
 		if os.path.isfile(os.path.join(directory, filename)):
 			if is_video_file(filename):
 				found.append(parse_filename(filename))
