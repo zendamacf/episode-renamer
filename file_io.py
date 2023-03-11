@@ -32,7 +32,10 @@ def find_files(directory) -> list:
 	for filename in sorted(os.listdir(directory), key=str.lower):
 		if os.path.isfile(os.path.join(directory, filename)):
 			if is_video_file(filename):
-				found.append(parse_filename(filename))
+				try:
+					found.append(parse_filename(filename))
+				except FileIOException as e:
+					print(f'Error parsing {filename}: {repr(e)}')
 	return found
 
 
