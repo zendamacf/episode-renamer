@@ -1,2 +1,2 @@
 def test_tmp():
-	assert(1 == 1)
+	assert 1 == 1
