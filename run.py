@@ -1,10 +1,21 @@
 #!/usr/bin/env python3
 
+import argparse
+
 import file_io as io
 import moviedb
 
+parser = argparse.ArgumentParser(prog='Episode Renamer')
+parser.add_argument(
+	'--dryrun',
+	action='store_true',
+	help='Instead of renaming the files, just display what changes would be made.'
+)
 
-def main():
+args = parser.parse_args()
+
+
+def main(dryrun: bool) -> None:
 	"""
 	Main function
 	"""
@@ -58,15 +69,18 @@ def main():
 			episodename,
 			f['extension']
 		)
-		io.rename_and_move(
-			config['HOME'],
-			f['filename'],
-			config['MOVED'],
-			new_filename,
-			chosen['name'],
-			chosen['year'],
-			f['season']
-		)
+		if dryrun:
+			print(f"[DRYRUN] Skipping rename from {f['filename']} to {new_filename}")
+		else:
+			io.rename_and_move(
+				config['HOME'],
+				f['filename'],
+				config['MOVED'],
+				new_filename,
+				chosen['name'],
+				chosen['year'],
+				f['season']
+			)
 
 
-main()
+main(args.dryrun)
