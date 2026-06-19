@@ -4,16 +4,6 @@ import pytest
 
 import moviedb
 
-TMDB_SEARCH_RESPONSE = {
-	'results': [
-		{'id': 2316, 'name': 'The Office', 'first_air_date': '2005-03-24'},
-		{'id': 9999, 'name': 'The Office (2010)', 'first_air_date': '2010-01-01'},
-		{'id': 8888, 'name': 'No Date Show'},
-	],
-}
-
-TMDB_EPISODE_RESPONSE = {'name': 'Pilot'}
-
 
 class TestStripYear:
 	def test_removes_parenthetical_year(self):
@@ -77,8 +67,8 @@ class TestRequest:
 
 class TestGetSeries:
 	@patch('moviedb._request')
-	def test_parses_search_results(self, mock_request):
-		mock_request.return_value = TMDB_SEARCH_RESPONSE
+	def test_parses_search_results(self, mock_request, tmdb_search_response):
+		mock_request.return_value = tmdb_search_response
 
 		results = moviedb.get_series('The Office', 'test-key')
 
@@ -108,11 +98,17 @@ class TestGetSeries:
 
 		assert moviedb.get_series('Unknown', 'test-key') == []
 
+	@patch('moviedb._request')
+	def test_not_found_returns_empty_list(self, mock_request):
+		mock_request.return_value = {}
+
+		assert moviedb.get_series('Unknown', 'test-key') == []
+
 
 class TestGetEpisode:
 	@patch('moviedb._request')
-	def test_returns_episode_name(self, mock_request):
-		mock_request.return_value = TMDB_EPISODE_RESPONSE
+	def test_returns_episode_name(self, mock_request, tmdb_episode_response):
+		mock_request.return_value = tmdb_episode_response
 
 		name = moviedb.get_episode(2316, 1, 1, 'test-key')
 

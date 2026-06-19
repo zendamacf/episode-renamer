@@ -2,29 +2,9 @@ from unittest.mock import patch
 
 import pytest
 
+import moviedb
 import run
-
-OFFICE = {'id': 2316, 'name': 'The Office', 'year': 2005}
-OFFICE_UK = {'id': 9999, 'name': 'The Office', 'year': 2010}
-
-
-@pytest.fixture
-def media_dirs(tmp_path):
-	home = tmp_path / 'home'
-	moved = tmp_path / 'moved'
-	home.mkdir()
-	moved.mkdir()
-	return home, moved
-
-
-@pytest.fixture
-def config_for_dirs(media_dirs):
-	home, moved = media_dirs
-	return {
-		'MOVIEDB_KEY': 'test-api-key',
-		'HOME': str(home),
-		'MOVED': str(moved),
-	}
+from helpers import OFFICE, OFFICE_UK
 
 
 class TestMain:
@@ -130,6 +110,25 @@ class TestMain:
 		expected = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
 		assert expected.exists()
 
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_multi_match_prompt_selects_explicit_choice(
+		self, mock_get_series, mock_get_episode,
+		media_dirs, config_for_dirs, monkeypatch
+	):
+		home, moved = media_dirs
+		filename = 'The Office S01E01.mp4'
+		(home / filename).write_text('video')
+		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_get_episode.return_value = 'Pilot'
+		monkeypatch.setattr('builtins.input', lambda _: '2')
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		expected = moved / 'The Office (2010)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		assert expected.exists()
+
 	@patch('run.moviedb.get_series')
 	def test_multi_match_prompt_ignore_skips_file(
 		self, mock_get_series, media_dirs, config_for_dirs,
@@ -165,3 +164,16 @@ class TestMain:
 
 		assert (home / filename).exists()
 		assert 'No episode found for The Office S1E1' in capsys.readouterr().out
+
+	@patch('run.moviedb.get_series')
+	def test_moviedb_error_propagates(
+		self, mock_get_series, media_dirs, config_for_dirs
+	):
+		home, _ = media_dirs
+		filename = 'The Office S01E01.mp4'
+		(home / filename).write_text('video')
+		mock_get_series.side_effect = moviedb.MovieDBException('API error')
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			with pytest.raises(moviedb.MovieDBException, match='API error'):
+				run.main(dryrun=False)

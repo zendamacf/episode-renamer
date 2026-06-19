@@ -1,18 +1,24 @@
+import json
+
 import pytest
 
 import file_io as io
-
-PARSEABLE_FILENAMES = {
-	's01e01': 'The Office S01E01.mp4',
-	'1x01': 'The Office 1x01.mkv',
-	'compact': 'The Office 102.avi',
-	'with_year': 'The Office 2005 S02E03.m4v',
-}
+from helpers import PARSEABLE_FILENAMES
 
 
 class TestReadConfig:
 	def test_reads_json_config(self, config_file, sample_config):
 		assert io.read_config(str(config_file)) == sample_config
+
+	def test_missing_file_raises(self, tmp_path):
+		with pytest.raises(FileNotFoundError):
+			io.read_config(str(tmp_path / 'missing.json'))
+
+	def test_invalid_json_raises(self, tmp_path):
+		path = tmp_path / 'bad.json'
+		path.write_text('{not json')
+		with pytest.raises(json.JSONDecodeError):
+			io.read_config(str(path))
 
 
 class TestIsVideoFile:
@@ -23,41 +29,36 @@ class TestIsVideoFile:
 		assert io.is_video_file(filename) is True
 
 	@pytest.mark.parametrize('filename', [
-		'show.txt', 'show.nfo', 'show.srt',
+		'show.txt', 'show.nfo', 'show.srt', 'show',
 	])
 	def test_non_video_extensions(self, filename):
 		assert io.is_video_file(filename) is False
 
 
 class TestParseFilename:
-	def test_s01e01_format(self):
-		result = io.parse_filename(PARSEABLE_FILENAMES['s01e01'])
-		assert result['name'] == 'The Office'
-		assert result['season'] == 1
-		assert result['episode'] == 1
-		assert result['extension'] == 'mp4'
-		assert result['filename'] == PARSEABLE_FILENAMES['s01e01']
-
-	def test_1x01_format(self):
-		result = io.parse_filename(PARSEABLE_FILENAMES['1x01'])
-		assert result['name'] == 'The Office'
-		assert result['season'] == 1
-		assert result['episode'] == 1
-		assert result['extension'] == 'mkv'
-
-	def test_compact_format(self):
-		result = io.parse_filename(PARSEABLE_FILENAMES['compact'])
-		assert result['name'] == 'The Office'
-		assert result['season'] == 1
-		assert result['episode'] == 2
-		assert result['extension'] == 'avi'
-
-	def test_with_year_in_name(self):
-		result = io.parse_filename(PARSEABLE_FILENAMES['with_year'])
-		assert result['name'] == 'The Office 2005'
-		assert result['season'] == 2
-		assert result['episode'] == 3
-		assert result['extension'] == 'm4v'
+	@pytest.mark.parametrize('key, expected', [
+		('s01e01', {
+			'name': 'The Office', 'season': 1, 'episode': 1, 'extension': 'mp4',
+		}),
+		('1x01', {
+			'name': 'The Office', 'season': 1, 'episode': 1, 'extension': 'mkv',
+		}),
+		('compact', {
+			'name': 'The Office', 'season': 1, 'episode': 2, 'extension': 'avi',
+		}),
+		('with_year', {
+			'name': 'The Office 2005', 'season': 2, 'episode': 3,
+			'extension': 'm4v',
+		}),
+	])
+	def test_parse_formats(self, key, expected):
+		filename = PARSEABLE_FILENAMES[key]
+		result = io.parse_filename(filename)
+		assert result['name'] == expected['name']
+		assert result['season'] == expected['season']
+		assert result['episode'] == expected['episode']
+		assert result['extension'] == expected['extension']
+		assert result['filename'] == filename
 
 	def test_dots_in_name_become_spaces(self):
 		result = io.parse_filename('The.Office.S01E01.mp4')
@@ -139,13 +140,30 @@ class TestPromptUser:
 		with pytest.raises(io.FileIOException, match='Invalid input'):
 			io.prompt_user('The Office', series_list)
 
+	def test_non_numeric_input_raises(self, series_list, monkeypatch):
+		monkeypatch.setattr('builtins.input', lambda _: 'abc')
+		with pytest.raises(io.FileIOException, match='Invalid input'):
+			io.prompt_user('The Office', series_list)
+
+	def test_prints_name_without_year(
+		self, series_list_without_year, monkeypatch, capsys
+	):
+		monkeypatch.setattr('builtins.input', lambda _: '')
+		io.prompt_user('Mystery Show', series_list_without_year)
+		assert '(1) Mystery Show\n' in capsys.readouterr().out
+
 
 class TestRenameAndMove:
-	def test_moves_file_with_year(self, tmp_path):
+	@pytest.fixture
+	def dirs(self, tmp_path):
 		home = tmp_path / 'home'
 		moved = tmp_path / 'moved'
 		home.mkdir()
 		moved.mkdir()
+		return home, moved
+
+	def test_moves_file_with_year(self, dirs):
+		home, moved = dirs
 		orig = 'The Office S01E01.mp4'
 		new_name = 'S01E01 - Pilot.mp4'
 		(home / orig).write_text('video')
@@ -159,11 +177,8 @@ class TestRenameAndMove:
 		assert expected.exists()
 		assert not (home / orig).exists()
 
-	def test_moves_file_without_year(self, tmp_path):
-		home = tmp_path / 'home'
-		moved = tmp_path / 'moved'
-		home.mkdir()
-		moved.mkdir()
+	def test_moves_file_without_year(self, dirs):
+		home, moved = dirs
 		orig = 'Show S01E01.mp4'
 		new_name = 'S01E01 - Pilot.mp4'
 		(home / orig).write_text('video')
@@ -176,17 +191,30 @@ class TestRenameAndMove:
 		expected = moved / 'Show' / 'Season 1' / new_name
 		assert expected.exists()
 
-	def test_duplicate_destination_raises(self, tmp_path):
-		home = tmp_path / 'home'
-		moved = tmp_path / 'moved'
-		home.mkdir()
-		moved.mkdir()
+	def test_moves_file_when_folders_already_exist(self, dirs):
+		home, moved = dirs
 		orig = 'Show S01E01.mp4'
 		new_name = 'S01E01 - Pilot.mp4'
 		(home / orig).write_text('video')
-		dest_dir = moved / 'Show (2005)' / 'Season 1'
-		dest_dir.mkdir(parents=True)
-		(dest_dir / new_name).write_text('existing')
+		season_dir = moved / 'Show (2005)' / 'Season 1'
+		season_dir.mkdir(parents=True)
+
+		io.rename_and_move(
+			str(home), orig, str(moved), new_name,
+			'Show', 2005, 1
+		)
+
+		assert (season_dir / new_name).exists()
+		assert not (home / orig).exists()
+
+	def test_duplicate_destination_raises(self, dirs):
+		home, moved = dirs
+		orig = 'Show S01E01.mp4'
+		new_name = 'S01E01 - Pilot.mp4'
+		(home / orig).write_text('video')
+		season_dir = moved / 'Show (2005)' / 'Season 1'
+		season_dir.mkdir(parents=True)
+		(season_dir / new_name).write_text('existing')
 
 		with pytest.raises(io.FileIOException, match='already Exists'):
 			io.rename_and_move(

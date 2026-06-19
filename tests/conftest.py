@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from helpers import TMDB_EPISODE_RESPONSE, TMDB_SEARCH_RESPONSE
 
 SAMPLE_CONFIG = {
 	'MOVIEDB_KEY': 'test-api-key',
@@ -38,21 +39,12 @@ def mock_http_response():
 
 @pytest.fixture
 def tmdb_search_response():
-	return {
-		'results': [
-			{'id': 2316, 'name': 'The Office', 'first_air_date': '2005-03-24'},
-			{
-				'id': 9999,
-				'name': 'The Office (2010)',
-				'first_air_date': '2010-01-01',
-			},
-		],
-	}
+	return TMDB_SEARCH_RESPONSE.copy()
 
 
 @pytest.fixture
 def tmdb_episode_response():
-	return {'name': 'Pilot'}
+	return TMDB_EPISODE_RESPONSE.copy()
 
 
 @pytest.fixture
@@ -61,3 +53,29 @@ def series_list():
 		{'id': 1, 'name': 'The Office', 'year': 2005},
 		{'id': 2, 'name': 'The Office', 'year': 2010},
 	]
+
+
+@pytest.fixture
+def series_list_without_year():
+	return [
+		{'id': 1, 'name': 'Mystery Show', 'year': None},
+	]
+
+
+@pytest.fixture
+def media_dirs(tmp_path):
+	home = tmp_path / 'home'
+	moved = tmp_path / 'moved'
+	home.mkdir()
+	moved.mkdir()
+	return home, moved
+
+
+@pytest.fixture
+def config_for_dirs(media_dirs):
+	home, moved = media_dirs
+	return {
+		'MOVIEDB_KEY': 'test-api-key',
+		'HOME': str(home),
+		'MOVED': str(moved),
+	}
