@@ -1,42 +1,49 @@
 # Release
 
-Episode Renamer uses [release-please](https://github.com/googleapis/release-please) to automate versioning, changelog updates, and GitHub releases.
+Episode Renamer uses [Towncrier](https://towncrier.readthedocs.io/) for changelog management and a tag-based GitHub Actions workflow for publishing releases.
 
 **Current version:** 0.1.0
 
 ## How releases work
 
-1. Merge changes to `main` using [Conventional Commits](https://www.conventionalcommits.org/).
-2. Release-please opens a release PR that bumps the version, updates `CHANGELOG.md`, and syncs version files.
-3. Merge the release PR → a GitHub release and tag (e.g. `v0.1.1`) are created automatically.
+### During development
 
-No manual tagging is required.
+Add a news fragment to `changes/` in each pull request that includes a user-facing change:
 
-### Commit message format
+```bash
+pip install towncrier
+towncrier create 42.feature.md --content "Added dry-run mode"
+```
 
-| Prefix | Effect (while &lt; 1.0.0) | Example |
-| --- | --- | --- |
-| `feat:` | Patch bump | `feat: cache series lookups across files` |
-| `fix:` | Patch bump | `fix: skip files with unparseable names` |
-| `feat!:` or `BREAKING CHANGE:` | Minor bump | `feat!: require Python 3.12` |
-
-Other prefixes (`chore:`, `docs:`, `test:`, etc.) do not trigger a release on their own.
-
-### Files managed by release-please
-
-| File | Purpose |
+| Type | Use for |
 | --- | --- |
-| `pyproject.toml` | Package version |
-| `.release-please-manifest.json` | Last released version |
-| `CHANGELOG.md` | Version history |
+| `feature` | New functionality |
+| `bugfix` | Bug fixes |
+| `doc` | Documentation changes |
+| `misc` | Internal changes (listed without detail) |
 
-Configuration lives in `release-please-config.json`. The workflow is defined in `.github/workflows/release-please.yml`.
+The issue number can be a GitHub issue or PR number. CI runs `towncrier check` to validate fragments.
 
-### Before merging a release PR
+### Cutting a release
 
-The test workflow (`.github/workflows/test.yml`) runs on every pull request, including release PRs. Ensure CI is green before merging.
+1. Bump `version` in `pyproject.toml`.
+2. Build the changelog (removes consumed fragments and updates `CHANGELOG.md`):
 
-If release-please cannot open PRs, check that GitHub Actions is allowed to create and approve pull requests in the repository (or organization) settings.
+   ```bash
+   towncrier build --version 0.1.1
+   ```
+
+3. Commit the version bump and changelog update.
+4. Tag and push:
+
+   ```bash
+   git tag v0.1.1
+   git push origin v0.1.1
+   ```
+
+The [release workflow](.github/workflows/release.yml) verifies the tag matches `pyproject.toml`, ensures no fragments remain in `changes/`, runs tests, and publishes a GitHub release using the matching `CHANGELOG.md` section.
+
+Install towncrier with `pip install towncrier`.
 
 ---
 
