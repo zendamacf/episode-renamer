@@ -4,3 +4,32 @@ version = "0.1.0"
 description = "Rename TV episode files using The Movie Database"
 readme = "README.md"
 requires-python = ">=3.12"
+
+[tool.towncrier]
+name = "episode-renamer"
+directory = "changes"
+filename = "CHANGELOG.md"
+start_string = "<!-- towncrier release notes start -->\n"
+title_format = "## [{version}](https://github.com/zendamacf/episode-renamer/releases/tag/v{version}) ({project_date})"
+issue_format = "[#{issue}](https://github.com/zendamacf/episode-renamer/issues/{issue})"
+underlines = ["", ""]
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "Features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bug Fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "doc"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "misc"
+name = "Misc"
+showcontent = false

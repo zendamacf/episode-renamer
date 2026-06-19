@@ -35,6 +35,12 @@ jobs:
       - name: Lint
         run: flake8
 
+      - name: Check changelog fragments
+        if: matrix.python-version == '3.12'
+        run: |
+          pip install towncrier
+          towncrier check
+
       - name: Test
         run: pytest
 
