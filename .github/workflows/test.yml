@@ -18,6 +18,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -35,7 +37,6 @@ jobs:
       - name: Check changelog fragments
         if: github.event_name == 'pull_request'
         run: |
-          git fetch --no-tags origin +refs/heads/${{ github.base_ref }}:refs/remotes/origin/${{ github.base_ref }}
           pip install towncrier
           towncrier check --compare-with origin/${{ github.base_ref }}
 
