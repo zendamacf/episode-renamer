@@ -71,7 +71,7 @@ def get_series(query: str, apikey: str) -> list:
 	)
 
 	found = []
-	for r in response['results']:
+	for r in response.get('results', []):
 		if 'first_air_date' not in r:
 			print('Ignoring missing airdate {}.'.format(r['name']))
 			continue

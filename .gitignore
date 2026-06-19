@@ -4,3 +4,11 @@ config.json
 tests/__pycache__/*
 
 .venv
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+

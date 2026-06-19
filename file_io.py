@@ -43,7 +43,10 @@ def is_video_file(filename: str) -> bool:
 	"""
 	Returns True if the file has an extension indicating it's a video file
 	"""
-	return filename.rsplit('.', 1)[1] in ['mp4', 'flv', 'avi', 'mkv', 'm4v']
+	parts = filename.rsplit('.', 1)
+	if len(parts) == 1:
+		return False
+	return parts[1] in ['mp4', 'flv', 'avi', 'mkv', 'm4v']
 
 
 def parse_filename(filename: str) -> dict:
@@ -86,15 +89,16 @@ def prompt_user(orig_name: str, series_list: list) -> dict:
 			print('({}) {}'.format(count + 1, value['name']))
 	choice = input(f'Select correct series for {orig_name} ("i" to ignore): ')
 	if choice == '':
-		chosen = series_list[0]
-	elif choice == 'i':
+		return series_list[0]
+	if choice == 'i':
 		return None
-	elif int(choice) < 1 or int(choice) > len(series_list):
+	try:
+		selection = int(choice)
+	except ValueError:
 		raise FileIOException('Invalid input.')
-	else:
-		chosen = series_list[int(choice) - 1]
-
-	return chosen
+	if selection < 1 or selection > len(series_list):
+		raise FileIOException('Invalid input.')
+	return series_list[selection - 1]
 
 
 def winsafe_filename(filename: str) -> str:

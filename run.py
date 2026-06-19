@@ -12,8 +12,6 @@ parser.add_argument(
 	help='Instead of renaming the files, just display what changes would be made.'
 )
 
-args = parser.parse_args()
-
 
 def main(dryrun: bool) -> None:
 	"""
@@ -83,4 +81,6 @@ def main(dryrun: bool) -> None:
 			)
 
 
-main(args.dryrun)
+if __name__ == '__main__':
+	args = parser.parse_args()
+	main(args.dryrun)
