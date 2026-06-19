@@ -15,15 +15,13 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    environment:
-      python-version: 3.14
 
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '${{ env.python-version }}'
+          python-version: '3.14'
 
       - name: Install dependencies
         run: |
