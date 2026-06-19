@@ -15,16 +15,15 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    strategy:
-      matrix:
-        python-version: ['3.12', '3.13', '3.14']
+    environment:
+      python-version: 3.14
 
     steps:
       - uses: actions/checkout@v7
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '${{ env.python-version }}'
 
       - name: Install dependencies
         run: |
@@ -36,7 +35,6 @@ jobs:
         run: flake8
 
       - name: Check changelog fragments
-        if: matrix.python-version == '3.12'
         run: |
           pip install towncrier
           towncrier check
@@ -45,7 +43,6 @@ jobs:
         run: pytest
 
       - name: Upload coverage
-        if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@v5
         with:
           files: coverage.xml
@@ -54,7 +51,7 @@ jobs:
 
       - name: Coverage comment
         id: coverage_comment
-        if: github.event_name == 'pull_request' && matrix.python-version == '3.12'
+        if: github.event_name == 'pull_request'
         uses: py-cov-action/python-coverage-comment-action@v3
         with:
           GITHUB_TOKEN: ${{ github.token }}
@@ -63,7 +60,6 @@ jobs:
       - name: Store coverage comment for fork PRs
         if: >-
           github.event_name == 'pull_request' &&
-          matrix.python-version == '3.12' &&
           steps.coverage_comment.outputs.COMMENT_FILE_WRITTEN == 'true'
         uses: actions/upload-artifact@v4
         with:
