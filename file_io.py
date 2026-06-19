@@ -51,6 +51,7 @@ def parse_filename(filename: str) -> dict:
 	Uses regex to pull series name, season and episode numbers
 	"""
 	regex_parsers = [
+		# flake8: noqa: E501
 		r"^(?P<name>.*?)\.*?(\d{4})?\.*?s *(?P<s>\d+) *e *(?P<e>\d+).*\.(?P<ext>.*?)$",
 		r"^(?P<name>.*?)(?P<s>\d+)x(?P<e>\d+).*\.(?P<ext>.*?)$",
 		r"^(?P<name>(?:.*?\D|))(?P<s>\d{1,2})(?P<e>\d{2})(?:\D.*|)\.(?P<ext>.*?)$",
