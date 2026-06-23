@@ -24,6 +24,8 @@ towncrier create 42.feature.md --content "Added dry-run mode"
 
 The issue number can be a GitHub issue or PR number. CI runs `towncrier check` to validate fragments.
 
+Dependabot pull requests get a `misc` fragment committed automatically by CI before the check runs.
+
 ### Cutting a release
 
 1. Bump `version` in `pyproject.toml`.

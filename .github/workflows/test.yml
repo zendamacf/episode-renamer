@@ -20,6 +20,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref }}
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -33,6 +34,41 @@ jobs:
 
       - name: Lint
         run: flake8
+
+      - name: Fetch Dependabot metadata
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.user.login == 'dependabot[bot]'
+        id: dependabot_metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Add towncrier fragment for Dependabot
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.user.login == 'dependabot[bot]'
+        id: dependabot_fragment
+        run: |
+          pip install towncrier
+          FRAGMENT="changes/${{ github.event.pull_request.number }}.misc.md"
+          if [ -f "$FRAGMENT" ]; then
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CONTENT="Bump ${{ steps.dependabot_metadata.outputs.dependency-names }} from ${{ steps.dependabot_metadata.outputs.previous-version }} to ${{ steps.dependabot_metadata.outputs.new-version }}."
+          towncrier create "${{ github.event.pull_request.number }}.misc.md" --content "$CONTENT"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$FRAGMENT"
+          git commit -m "chore: add towncrier fragment for dependabot [dependabot skip]"
+          echo "committed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Push Dependabot towncrier fragment
+        if: >-
+          github.event_name == 'pull_request' &&
+          steps.dependabot_fragment.outputs.committed == 'true'
+        run: git push
 
       - name: Check changelog fragments
         if: github.event_name == 'pull_request'
