@@ -1,6 +1,10 @@
-.PHONY: install lint format typecheck test check ci release
+.PHONY: install install.dev lint format typecheck test check ci release
 
 install:
+	python -m pip install --upgrade pip
+	pip install -r requirements.txt
+
+install.dev:
 	python -m pip install --upgrade pip
 	pip install -r requirements-dev.txt
 

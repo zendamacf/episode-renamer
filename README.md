@@ -8,14 +8,15 @@
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-make install
+make install.dev
 ```
 
 Common tasks are run via the [Makefile](Makefile):
 
 | Command | What it runs |
 | --- | --- |
-| `make install` | Install runtime + dev dependencies |
+| `make install` | Install runtime dependencies |
+| `make install.dev` | Install runtime + dev dependencies |
 | `make lint` | Format check and Ruff lint |
 | `make format` | Apply Ruff formatting, then lint |
 | `make typecheck` | basedpyright |
@@ -26,3 +27,10 @@ Common tasks are run via the [Makefile](Makefile):
 
 See [RELEASE.md](RELEASE.md) for changelog and release steps.
 
+## Deployment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+make install
+```
