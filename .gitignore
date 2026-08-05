@@ -11,3 +11,5 @@ rename_history.json
 coverage.xml
 htmlcov/
 
+# ruff
+.ruff_cache/
