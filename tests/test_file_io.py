@@ -1,10 +1,10 @@
 import json
 
 import pytest
+from helpers import PARSEABLE_FILENAMES, assert_logged
 
 import file_io as io
 import log
-from helpers import PARSEABLE_FILENAMES, assert_logged
 
 
 class TestReadConfig:

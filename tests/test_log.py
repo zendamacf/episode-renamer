@@ -1,7 +1,8 @@
 from unittest.mock import patch
 
-import log
 from helpers import assert_logged
+
+import log
 
 
 class TestLogColors:

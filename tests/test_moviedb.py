@@ -2,9 +2,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 import requests
+from helpers import assert_logged
 
 import moviedb
-from helpers import assert_logged
 
 
 class TestStripYear:

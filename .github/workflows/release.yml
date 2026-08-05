@@ -38,12 +38,13 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.14'
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
-          pip install -r requirements.txt
+        run: make install.dev
 
       - name: Lint
         run: make check

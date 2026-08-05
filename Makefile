@@ -1,4 +1,12 @@
-.PHONY: lint format typecheck test check release
+.PHONY: install install.dev lint format typecheck test check ci release
+
+install:
+	python -m pip install --upgrade pip
+	pip install -r requirements.txt
+
+install.dev:
+	python -m pip install --upgrade pip
+	pip install -r requirements-dev.txt
 
 lint:
 	ruff format --check .
@@ -21,3 +29,5 @@ endif
 	./scripts/prep_release.py $(VERSION)
 
 check: lint typecheck
+
+ci: check test
