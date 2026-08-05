@@ -146,20 +146,45 @@ def rename_and_move(
 	"""
 	Rename and sort the file into folders
 	"""
-	if year is not None:
-		show_folder = os.path.join(new_directory, '{} ({})'.format(show, year))
-	else:
-		show_folder = os.path.join(new_directory, '{}'.format(show))
-	if not os.path.exists(show_folder):
-		os.makedirs(show_folder)
+	safe_show = winsafe_filename(str(show))
+	if not safe_show:
+		raise FileIOException('Show name is empty after sanitization.')
+	folder_name = (
+		'{} ({})'.format(safe_show, year) if year is not None else safe_show
+	)
+	show_folder = os.path.join(new_directory, folder_name)
+	season_folder = os.path.join(show_folder, 'Season {}'.format(season))
+
+	created_show = not os.path.exists(show_folder)
+	created_season = not os.path.exists(season_folder)
+	os.makedirs(season_folder, exist_ok=True)
+	if created_show:
 		log.info(f'Created show folder: {show_folder}')
-	season_folder = os.path.join(show_folder, 'Season {}'.format(season,))
-	if not os.path.exists(season_folder):
-		os.makedirs(season_folder)
+	if created_season:
 		log.info(f'Created season folder: {season_folder}')
+
 	curr_file = os.path.join(orig_directory, orig_filename)
 	new_file = os.path.join(season_folder, new_filename)
-	if os.path.exists(new_file):
-		raise FileIOException('{} already Exists.'.format(new_file,))
-	shutil.move(curr_file, new_file)
+	try:
+		fd = os.open(new_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+		os.close(fd)
+	except FileExistsError:
+		raise FileIOException('{} already Exists.'.format(new_file))
+
+	try:
+		os.replace(curr_file, new_file)
+	except OSError:
+		# Cross-device: replace reserved dest with content, then remove source.
+		try:
+			shutil.copy2(curr_file, new_file)
+			os.unlink(curr_file)
+		except OSError as exc:
+			try:
+				os.unlink(new_file)
+			except OSError:
+				pass
+			raise FileIOException(
+				'Failed to move {} -> {}: {}'.format(curr_file, new_file, exc)
+			) from exc
+
 	log.success(f'Successfully moved to {new_file}')
