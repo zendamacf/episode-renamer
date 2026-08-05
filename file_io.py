@@ -208,13 +208,7 @@ def rename_and_move(
 	show_folder = os.path.join(new_directory, folder_name)
 	season_folder = os.path.join(show_folder, 'Season {}'.format(season))
 
-	created_show = not os.path.exists(show_folder)
-	created_season = not os.path.exists(season_folder)
 	os.makedirs(season_folder, exist_ok=True)
-	if created_show:
-		log.info(f'Created show folder: {show_folder}')
-	if created_season:
-		log.info(f'Created season folder: {season_folder}')
 
 	curr_file = os.path.join(orig_directory, orig_filename)
 	new_file = os.path.join(season_folder, new_filename)

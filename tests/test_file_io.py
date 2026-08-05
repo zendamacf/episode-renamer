@@ -211,8 +211,6 @@ class TestRenameAndMove:
 		assert expected.exists()
 		assert not (home / orig).exists()
 		output = capsys.readouterr().out
-		assert f'Created show folder: {moved / "The Office (2005)"}' in output
-		assert f'Created season folder: {expected.parent}' in output
 		assert f'Successfully moved to {expected}' in output
 
 	def test_moves_file_without_year(self, dirs):
@@ -245,8 +243,6 @@ class TestRenameAndMove:
 		assert (season_dir / new_name).exists()
 		assert not (home / orig).exists()
 		output = capsys.readouterr().out
-		assert 'Created show folder' not in output
-		assert 'Created season folder' not in output
 		assert f'Successfully moved to {season_dir / new_name}' in output
 
 	def test_duplicate_destination_raises(self, dirs):
