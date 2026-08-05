@@ -27,12 +27,13 @@ def config_file(tmp_path, sample_config):
 
 @pytest.fixture
 def mock_http_response():
-	def _make(status_code, body=None, text=None):
+	def _make(status_code, body=None, text=None, headers=None):
 		response = Mock()
 		response.status_code = status_code
 		if text is None and body is not None:
 			text = json.dumps(body)
 		response.text = text or ''
+		response.headers = headers or {}
 		return response
 	return _make
 

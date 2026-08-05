@@ -56,7 +56,6 @@ def parse_filename(filename: str) -> dict:
 	Uses regex to pull series name, season and episode numbers
 	"""
 	regex_parsers = [
-		# flake8: noqa: E501 (line too long)
 		# S##E## style, optional year: "Show.S01E01.mkv", "Show 2020 S01E01.mp4"
 		r"^(?P<name>.*?)\.*?(\d{4})?\.*?s *(?P<s>\d+) *e *(?P<e>\d+).*\.(?P<ext>.*?)$",
 		# Season x episode: "Show 1x01.mkv", "Show.12x05.avi"
