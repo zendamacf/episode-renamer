@@ -1,6 +1,7 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
+import requests
 
 import moviedb
 
@@ -23,46 +24,118 @@ class TestExtractYear:
 	def test_none_returns_none(self):
 		assert moviedb._extract_year(None) is None
 
+	def test_invalid_date_returns_none(self):
+		assert moviedb._extract_year('not-a-date') is None
+
+
+class TestRetryDelay:
+	def test_uses_retry_after_header(self):
+		response = Mock()
+		response.headers = {'Retry-After': '1.5'}
+		assert moviedb._retry_delay(response, 0) == 1.5
+
+	def test_falls_back_to_exponential_backoff(self):
+		assert moviedb._retry_delay(None, 2) == 4.0
+
+	def test_invalid_retry_after_uses_backoff(self):
+		response = Mock()
+		response.headers = {'Retry-After': 'soon'}
+		assert moviedb._retry_delay(response, 1) == 2.0
+
 
 class TestRequest:
 	@patch('moviedb.requests.get')
 	def test_get_success_returns_json(self, mock_get, mock_http_response):
 		mock_get.return_value = mock_http_response(200, {'ok': True})
 
-		result = moviedb._request('/search/tv', 'GET', params={'api_key': 'key'})
+		result = moviedb._request('/search/tv', params={'api_key': 'key'})
 
 		assert result == {'ok': True}
 		mock_get.assert_called_once_with(
 			'https://api.themoviedb.org/3/search/tv',
 			params={'api_key': 'key'},
-			data=None,
 			headers={
 				'Content-Type': 'application/json',
 				'Accept': 'application/json',
 			},
+			timeout=moviedb.DEFAULT_TIMEOUT,
 		)
-
-	@patch('moviedb.requests.post')
-	def test_post_uses_post_method(self, mock_post, mock_http_response):
-		mock_post.return_value = mock_http_response(200, {'ok': True})
-
-		result = moviedb._request('/token', 'POST', data='{}')
-
-		assert result == {'ok': True}
-		mock_post.assert_called_once()
 
 	@patch('moviedb.requests.get')
 	def test_not_found_returns_empty_dict(self, mock_get, mock_http_response):
 		mock_get.return_value = mock_http_response(404)
 
-		assert moviedb._request('/missing', 'GET') == {}
+		assert moviedb._request('/missing') == {}
 
+	@patch('moviedb.time.sleep')
 	@patch('moviedb.requests.get')
-	def test_server_error_raises(self, mock_get, mock_http_response):
+	def test_server_error_raises_after_retries(
+		self, mock_get, mock_sleep, mock_http_response
+	):
 		mock_get.return_value = mock_http_response(500, text='Internal Server Error')
 
 		with pytest.raises(moviedb.MovieDBException, match='Unexpected response'):
-			moviedb._request('/search/tv', 'GET')
+			moviedb._request('/search/tv')
+
+		assert mock_get.call_count == moviedb.MAX_RETRIES
+		assert mock_sleep.call_count == moviedb.MAX_RETRIES - 1
+
+	@patch('moviedb.time.sleep')
+	@patch('moviedb.requests.get')
+	def test_retries_on_connection_error_then_succeeds(
+		self, mock_get, mock_sleep, mock_http_response
+	):
+		mock_get.side_effect = [
+			requests.ConnectionError('boom'),
+			mock_http_response(200, {'ok': True}),
+		]
+
+		assert moviedb._request('/search/tv') == {'ok': True}
+		assert mock_get.call_count == 2
+		mock_sleep.assert_called_once()
+
+	@patch('moviedb.time.sleep')
+	@patch('moviedb.requests.get')
+	def test_retries_on_429_then_succeeds(
+		self, mock_get, mock_sleep, mock_http_response
+	):
+		rate_limited = mock_http_response(429, text='Slow down')
+		rate_limited.headers = {'Retry-After': '0'}
+		mock_get.side_effect = [
+			rate_limited,
+			mock_http_response(200, {'ok': True}),
+		]
+
+		assert moviedb._request('/search/tv') == {'ok': True}
+		mock_sleep.assert_called_once_with(0.0)
+
+	@patch('moviedb.time.sleep')
+	@patch('moviedb.requests.get')
+	def test_connection_errors_exhaust_retries(self, mock_get, mock_sleep):
+		mock_get.side_effect = requests.ConnectionError('down')
+
+		with pytest.raises(moviedb.MovieDBException, match='failed after'):
+			moviedb._request('/search/tv')
+
+		assert mock_get.call_count == moviedb.MAX_RETRIES
+
+	@patch('moviedb.requests.get')
+	def test_invalid_json_raises(self, mock_get, mock_http_response):
+		mock_get.return_value = mock_http_response(200, text='{not-json')
+
+		with pytest.raises(moviedb.MovieDBException, match='Invalid JSON'):
+			moviedb._request('/search/tv')
+
+	@patch('moviedb.requests.get')
+	def test_client_error_raises_without_retry(
+		self, mock_get, mock_http_response
+	):
+		mock_get.return_value = mock_http_response(401, text='Unauthorized')
+
+		with pytest.raises(moviedb.MovieDBException, match='Unexpected response'):
+			moviedb._request('/search/tv')
+
+		mock_get.assert_called_once()
 
 
 class TestGetSeries:
@@ -77,7 +150,6 @@ class TestGetSeries:
 		assert results[1] == {'id': 9999, 'name': 'The Office', 'year': 2010}
 		mock_request.assert_called_once_with(
 			'/search/tv',
-			'GET',
 			params={'api_key': 'test-key', 'query': 'The Office'},
 		)
 
@@ -104,6 +176,20 @@ class TestGetSeries:
 
 		assert moviedb.get_series('Unknown', 'test-key') == []
 
+	@patch('moviedb._request')
+	def test_invalid_airdate_yields_none_year(self, mock_request):
+		mock_request.return_value = {
+			'results': [{
+				'id': 1,
+				'name': 'Odd Show',
+				'first_air_date': 'yesterday',
+			}],
+		}
+
+		results = moviedb.get_series('Odd Show', 'test-key')
+
+		assert results == [{'id': 1, 'name': 'Odd Show', 'year': None}]
+
 
 class TestGetEpisode:
 	@patch('moviedb._request')
@@ -115,7 +201,6 @@ class TestGetEpisode:
 		assert name == 'Pilot'
 		mock_request.assert_called_once_with(
 			'/tv/2316/season/1/episode/1',
-			'GET',
 			params={'api_key': 'test-key'},
 		)
 
@@ -124,3 +209,9 @@ class TestGetEpisode:
 		mock_request.return_value = {}
 
 		assert moviedb.get_episode(2316, 99, 99, 'test-key') is None
+
+	@patch('moviedb._request')
+	def test_missing_name_returns_none(self, mock_request):
+		mock_request.return_value = {'id': 1}
+
+		assert moviedb.get_episode(2316, 1, 1, 'test-key') is None

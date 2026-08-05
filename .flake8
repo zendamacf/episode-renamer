@@ -2,3 +2,4 @@
 
 ignore = W191,E117
 extend-exclude = .venv
+max-line-length = 100
