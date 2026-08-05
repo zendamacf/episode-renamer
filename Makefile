@@ -14,4 +14,7 @@ typecheck:
 test:
 	pytest
 
+release:
+	./scripts/prep_release.py
+
 check: lint typecheck

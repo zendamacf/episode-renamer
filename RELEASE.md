@@ -30,7 +30,7 @@ Dependabot pull requests get a `misc` fragment committed automatically by CI bef
 1. Prep the release (bumps `version` in `pyproject.toml` and builds the changelog):
 
    ```bash
-   ./scripts/prep_release.py 0.2.1
+   make release
    ```
 
 2. Commit the version bump and changelog update.
@@ -41,7 +41,7 @@ Dependabot pull requests get a `misc` fragment committed automatically by CI bef
    git push origin v0.2.1
    ```
 
-The [release workflow](.github/workflows/release.yml) verifies the tag matches `pyproject.toml`, ensures no fragments remain in `changes/`, runs tests, and publishes a GitHub release using the matching `CHANGELOG.md` section.
+The [release workflow](.github/workflows/release.yml) verifies the tag matches `pyproject.toml`, ensures no fragments remain in `changes/`, runs checks, tests, and publishes a GitHub release using the matching `CHANGELOG.md` section.
 
 ---
 
