@@ -27,7 +27,7 @@ def _format_line(msg: str, color: str | None, prefix: str | None) -> str:
 
 	label = f'{prefix}:'.ljust(PREFIX_WIDTH)
 	if color and _use_color():
-		return f'{color}{label}{RESET}{msg}'
+		return f'{BOLD}{color}{label}{RESET}{msg}'
 	return f'{label}{msg}'
 
 
@@ -36,22 +36,22 @@ def _print(msg: str, color: str | None = None, prefix: str | None = None) -> Non
 
 
 def info(msg: str, *, prefix: str | None = None) -> None:
-	"""Progress / status messages. Prefix rendered in cyan."""
+	"""Progress / status messages. Prefix rendered in bold cyan."""
 	_print(msg, CYAN, prefix)
 
 
 def success(msg: str, *, prefix: str | None = None) -> None:
-	"""Completed actions. Prefix rendered in green."""
+	"""Completed actions. Prefix rendered in bold green."""
 	_print(msg, GREEN, prefix)
 
 
 def warn(msg: str, *, prefix: str | None = None) -> None:
-	"""Skips, dry-run, or missing data. Prefix rendered in yellow."""
+	"""Skips, dry-run, or missing data. Prefix rendered in bold yellow."""
 	_print(msg, YELLOW, prefix)
 
 
 def error(msg: str, *, prefix: str | None = None) -> None:
-	"""Parse failures / hard misses. Prefix rendered in red."""
+	"""Parse failures / hard misses. Prefix rendered in bold red."""
 	_print(msg, RED, prefix)
 
 

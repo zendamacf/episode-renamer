@@ -62,7 +62,7 @@ class TestLogPrefix:
 			log.info('file.mkv', prefix='Current')
 		label = 'Current:'.ljust(log.PREFIX_WIDTH)
 		assert capsys.readouterr().out == (
-			f'{log.CYAN}{label}{log.RESET}file.mkv\n'
+			f'{log.BOLD}{log.CYAN}{label}{log.RESET}file.mkv\n'
 		)
 
 	def test_success_prefix_uses_green(self, capsys):
@@ -70,7 +70,7 @@ class TestLogPrefix:
 			log.success('/path/out.mkv', prefix='Moved')
 		label = 'Moved:'.ljust(log.PREFIX_WIDTH)
 		assert capsys.readouterr().out == (
-			f'{log.GREEN}{label}{log.RESET}/path/out.mkv\n'
+			f'{log.BOLD}{log.GREEN}{label}{log.RESET}/path/out.mkv\n'
 		)
 
 	def test_bodies_align_across_prefix_lengths(self, capsys):
