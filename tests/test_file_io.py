@@ -21,10 +21,27 @@ class TestReadConfig:
 		with pytest.raises(json.JSONDecodeError):
 			io.read_config(str(path))
 
+	def test_missing_key_raises(self, tmp_path):
+		path = tmp_path / 'config.json'
+		path.write_text(json.dumps({'HOME': '/a', 'MOVED': '/b'}))
+		with pytest.raises(io.FileIOException, match='MOVIEDB_KEY'):
+			io.read_config(str(path))
+
+	def test_empty_key_raises(self, tmp_path):
+		path = tmp_path / 'config.json'
+		path.write_text(json.dumps({
+			'MOVIEDB_KEY': '',
+			'HOME': '/a',
+			'MOVED': '/b',
+		}))
+		with pytest.raises(io.FileIOException, match='MOVIEDB_KEY'):
+			io.read_config(str(path))
+
 
 class TestIsVideoFile:
 	@pytest.mark.parametrize('filename', [
 		'show.mp4', 'show.mkv', 'show.avi', 'show.flv', 'show.m4v',
+		'show.MP4', 'show.MkV',
 	])
 	def test_video_extensions(self, filename):
 		assert io.is_video_file(filename) is True

@@ -1,6 +1,6 @@
 """
 Searches for tv show episode files, and renames & sorts, them
-using information from thetvdb
+using information from TMDB
 """
 
 import json
@@ -15,6 +15,9 @@ class FileIOException(Exception):
 	pass
 
 
+REQUIRED_CONFIG_KEYS = ('MOVIEDB_KEY', 'HOME', 'MOVED')
+
+
 def read_config(filename: str) -> dict:
 	"""
 	Reads a JSON config file into a dict
@@ -22,6 +25,11 @@ def read_config(filename: str) -> dict:
 	with open(filename) as file:
 		config = json.load(file)
 
+	missing = [k for k in REQUIRED_CONFIG_KEYS if not config.get(k)]
+	if missing:
+		raise FileIOException(
+			'Missing or empty config keys: {}'.format(', '.join(missing))
+		)
 	return config
 
 
@@ -48,7 +56,7 @@ def is_video_file(filename: str) -> bool:
 	parts = filename.rsplit('.', 1)
 	if len(parts) == 1:
 		return False
-	return parts[1] in ['mp4', 'flv', 'avi', 'mkv', 'm4v']
+	return parts[1].lower() in {'mp4', 'flv', 'avi', 'mkv', 'm4v'}
 
 
 def parse_filename(filename: str) -> dict:
