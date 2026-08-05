@@ -1,9 +1,7 @@
 import json
-
 from unittest.mock import Mock
 
 import pytest
-
 from helpers import TMDB_EPISODE_RESPONSE, TMDB_SEARCH_RESPONSE
 
 SAMPLE_CONFIG = {

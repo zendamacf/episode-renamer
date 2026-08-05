@@ -3,6 +3,7 @@ Searches for tv show episode files, and renames & sorts, them
 using information from TMDB
 """
 
+import contextlib
 import json
 import os
 import re
@@ -39,12 +40,11 @@ def find_files(directory) -> list:
 	log.info(directory, prefix='Checking')
 	found = []
 	for filename in sorted(os.listdir(directory), key=str.lower):
-		if os.path.isfile(os.path.join(directory, filename)):
-			if is_video_file(filename):
-				try:
-					found.append(parse_filename(filename))
-				except FileIOException as e:
-					log.error(f'{filename}: {repr(e)}', prefix='Error')
+		if os.path.isfile(os.path.join(directory, filename)) and is_video_file(filename):
+			try:
+				found.append(parse_filename(filename))
+			except FileIOException as e:
+				log.error(f'{filename}: {repr(e)}', prefix='Error')
 	return found
 
 
@@ -102,8 +102,8 @@ def prompt_user(orig_name: str, series_list: list[dict[str, Any]]) -> dict[str, 
 		return None
 	try:
 		selection = int(choice)
-	except ValueError:
-		raise FileIOException('Invalid input.')
+	except ValueError as exc:
+		raise FileIOException('Invalid input.') from exc
 	if selection < 1 or selection > len(series_list):
 		raise FileIOException('Invalid input.')
 	return series_list[selection - 1]
@@ -135,8 +135,8 @@ def move_file(from_path: str, to_path: str) -> None:
 	try:
 		fd = os.open(to_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
 		os.close(fd)
-	except FileExistsError:
-		raise FileIOException('{} already Exists.'.format(to_path))
+	except FileExistsError as exc:
+		raise FileIOException(f'{to_path} already Exists.') from exc
 
 	try:
 		os.replace(from_path, to_path)
@@ -146,13 +146,9 @@ def move_file(from_path: str, to_path: str) -> None:
 			shutil.copy2(from_path, to_path)
 			os.unlink(from_path)
 		except OSError as exc:
-			try:
+			with contextlib.suppress(OSError):
 				os.unlink(to_path)
-			except OSError:
-				pass
-			raise FileIOException(
-				'Failed to move {} -> {}: {}'.format(from_path, to_path, exc)
-			) from exc
+			raise FileIOException(f'Failed to move {from_path} -> {to_path}: {exc}') from exc
 
 
 def remove_empty_parents(path: str, stop_at: str | None = None) -> None:
@@ -188,9 +184,9 @@ def rename_and_move(
 	safe_show = winsafe_filename(str(show))
 	if not safe_show:
 		raise FileIOException('Show name is empty after sanitization.')
-	folder_name = '{} ({})'.format(safe_show, year) if year is not None else safe_show
+	folder_name = f'{safe_show} ({year})' if year is not None else safe_show
 	show_folder = os.path.join(new_directory, folder_name)
-	season_folder = os.path.join(show_folder, 'Season {}'.format(season))
+	season_folder = os.path.join(show_folder, f'Season {season}')
 
 	os.makedirs(season_folder, exist_ok=True)
 

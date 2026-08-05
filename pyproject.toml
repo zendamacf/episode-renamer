@@ -43,9 +43,7 @@ exclude = ["*/.venv/*"]
 # This repo uses tabs for indentation, so we intentionally ignore
 # tab-related indentation diagnostics.
 ignore = ["W191", "E117"]
-# Keep the initial migration close to the existing flake8 behavior
-# (pycodestyle + pyflakes core rules).
-select = ["E", "F", "W"]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
 
 [tool.ruff.format]
 # Preserve the repo's tab-indented style.

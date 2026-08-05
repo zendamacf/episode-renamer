@@ -2,10 +2,11 @@
 Persistent rename journal for undo support.
 """
 
+import contextlib
 import json
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 HISTORY_PATH = 'rename_history.json'
 MAX_BATCHES = 20
@@ -32,9 +33,9 @@ def load_history(path: str | None = None) -> dict:
 		with open(path) as file:
 			data = json.load(file)
 	except (OSError, json.JSONDecodeError) as exc:
-		raise HistoryException('Failed to read rename history {}: {}'.format(path, exc)) from exc
+		raise HistoryException(f'Failed to read rename history {path}: {exc}') from exc
 	if not isinstance(data, dict) or not isinstance(data.get('batches'), list):
-		raise HistoryException('Invalid rename history format in {}'.format(path))
+		raise HistoryException(f'Invalid rename history format in {path}')
 	return data
 
 
@@ -52,11 +53,9 @@ def save_history(data: dict, path: str | None = None) -> None:
 			file.write('\n')
 		os.replace(tmp_path, path)
 	except OSError as exc:
-		try:
+		with contextlib.suppress(OSError):
 			os.unlink(tmp_path)
-		except OSError:
-			pass
-		raise HistoryException('Failed to write rename history {}: {}'.format(path, exc)) from exc
+		raise HistoryException(f'Failed to write rename history {path}: {exc}') from exc
 
 
 def append_batch(moves: list, path: str | None = None) -> None:
@@ -70,7 +69,7 @@ def append_batch(moves: list, path: str | None = None) -> None:
 		path = HISTORY_PATH
 	data = load_history(path)
 	batch = {
-		'id': datetime.now(timezone.utc).isoformat(),
+		'id': datetime.now(UTC).isoformat(),
 		'moves': list(moves),
 	}
 	data['batches'].append(batch)
