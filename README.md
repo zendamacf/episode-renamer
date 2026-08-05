@@ -20,6 +20,7 @@ Common tasks are run via the [Makefile](Makefile):
 | `make typecheck` | basedpyright |
 | `make test` | pytest |
 | `make check` | `lint` + `typecheck` |
+| `make release VERSION=0.2.1` | Prep release (bump version + changelog) |
 
 CI runs `make check` and `make test`. See [RELEASE.md](RELEASE.md) for changelog and release steps.
 

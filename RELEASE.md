@@ -30,7 +30,7 @@ Dependabot pull requests get a `misc` fragment committed automatically by CI bef
 1. Prep the release (bumps `version` in `pyproject.toml` and builds the changelog):
 
    ```bash
-   make release
+   make release VERSION=0.2.1
    ```
 
 2. Commit the version bump and changelog update.

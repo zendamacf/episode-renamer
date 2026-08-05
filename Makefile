@@ -1,4 +1,4 @@
-.PHONY: lint format typecheck test check
+.PHONY: lint format typecheck test check release
 
 lint:
 	ruff format --check .
@@ -15,6 +15,9 @@ test:
 	pytest
 
 release:
-	./scripts/prep_release.py
+ifndef VERSION
+	$(error VERSION is required, e.g. make release VERSION=0.2.1)
+endif
+	./scripts/prep_release.py $(VERSION)
 
 check: lint typecheck
