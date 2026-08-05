@@ -1,9 +1,10 @@
-import requests
 import json
 import re
 import time
 from datetime import datetime
 from typing import Any
+
+import requests
 
 import log
 
@@ -32,7 +33,7 @@ def _request(url: str, params: dict[str, str] | None = None) -> dict[str, Any]:
 	GET from The Movie Database with timeout and bounded retries.
 	"""
 	headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
-	endpoint = 'https://api.themoviedb.org/3{}'.format(url)
+	endpoint = f'https://api.themoviedb.org/3{url}'
 	last_error = None
 
 	for attempt in range(MAX_RETRIES):
@@ -53,7 +54,7 @@ def _request(url: str, params: dict[str, str] | None = None) -> dict[str, Any]:
 			try:
 				return json.loads(response.text)
 			except json.JSONDecodeError as exc:
-				raise MovieDBException('Invalid JSON from TMDB: {}'.format(exc)) from exc
+				raise MovieDBException(f'Invalid JSON from TMDB: {exc}') from exc
 
 		if response.status_code == 404:
 			return {}
@@ -62,13 +63,9 @@ def _request(url: str, params: dict[str, str] | None = None) -> dict[str, Any]:
 			time.sleep(_retry_delay(response, attempt))
 			continue
 
-		raise MovieDBException(
-			'Unexpected response ({}): {}'.format(response.status_code, response.text)
-		)
+		raise MovieDBException(f'Unexpected response ({response.status_code}): {response.text}')
 
-	raise MovieDBException(
-		'TMDB request failed after {} retries: {}'.format(MAX_RETRIES, last_error)
-	)
+	raise MovieDBException(f'TMDB request failed after {MAX_RETRIES} retries: {last_error}')
 
 
 def _strip_year(nam: str) -> str:
@@ -118,7 +115,7 @@ def get_episode(seriesid: int, season: int, episode: int, apikey: str) -> str | 
 	Gets episode information
 	"""
 	response = _request(
-		'/tv/{}/season/{}/episode/{}'.format(seriesid, season, episode), params={'api_key': apikey}
+		f'/tv/{seriesid}/season/{season}/episode/{episode}', params={'api_key': apikey}
 	)
 	if response:
 		return response.get('name')

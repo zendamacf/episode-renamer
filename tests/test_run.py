@@ -1,10 +1,11 @@
 from unittest.mock import patch
 
+from helpers import OFFICE, OFFICE_UK, assert_logged
+
 import file_io as io
 import history
 import moviedb
 import run
-from helpers import OFFICE, OFFICE_UK, assert_logged
 
 
 class TestSeriesLabel:
@@ -288,15 +289,17 @@ class TestMain:
 		mock_get_series.return_value = [OFFICE]
 		mock_get_episode.side_effect = ['Pilot', 'Diversity Day']
 
-		with patch('run.io.read_config', return_value=config_for_dirs):
-			with patch(
+		with (
+			patch('run.io.read_config', return_value=config_for_dirs),
+			patch(
 				'run.io.rename_and_move',
 				side_effect=[
 					OSError('disk full'),
 					str(moved / 'fake' / 'S01E02 - Diversity Day.mp4'),
 				],
-			):
-				run.main(dryrun=False)
+			),
+		):
+			run.main(dryrun=False)
 
 		assert (home / first).exists()
 		assert (home / second).exists()
@@ -492,12 +495,14 @@ class TestUndo:
 		)
 
 	def test_undo_load_history_error(self, config_for_dirs, capsys):
-		with patch('run.io.read_config', return_value=config_for_dirs):
-			with patch(
+		with (
+			patch('run.io.read_config', return_value=config_for_dirs),
+			patch(
 				'run.history.load_history',
 				side_effect=history.HistoryException('corrupt'),
-			):
-				run.undo_batches(1, dryrun=False)
+			),
+		):
+			run.undo_batches(1, dryrun=False)
 
 		assert_logged(capsys.readouterr().out, ('Error', 'corrupt'))
 
@@ -520,12 +525,14 @@ class TestUndo:
 		home, moved = media_dirs
 		self._seed_moved_file(home, moved)
 
-		with patch('run.io.read_config', return_value=config_for_dirs):
-			with patch(
+		with (
+			patch('run.io.read_config', return_value=config_for_dirs),
+			patch(
 				'run.history.save_history',
 				side_effect=history.HistoryException('write failed'),
-			):
-				run.undo_batches(1, dryrun=False)
+			),
+		):
+			run.undo_batches(1, dryrun=False)
 
 		assert_logged(capsys.readouterr().out, ('Error', 'write failed'))
 
@@ -533,12 +540,14 @@ class TestUndo:
 		home, moved = media_dirs
 		src, dest = self._seed_moved_file(home, moved)
 
-		with patch('run.io.read_config', return_value=config_for_dirs):
-			with patch(
+		with (
+			patch('run.io.read_config', return_value=config_for_dirs),
+			patch(
 				'run.io.move_file',
 				side_effect=io.FileIOException('cross-device failed'),
-			):
-				run.undo_batches(1, dryrun=False)
+			),
+		):
+			run.undo_batches(1, dryrun=False)
 
 		assert dest.exists()
 		assert not src.exists()
@@ -561,12 +570,14 @@ class TestHistoryRecordingErrors:
 		mock_get_series.return_value = [OFFICE]
 		mock_get_episode.return_value = 'Pilot'
 
-		with patch('run.io.read_config', return_value=config_for_dirs):
-			with patch(
+		with (
+			patch('run.io.read_config', return_value=config_for_dirs),
+			patch(
 				'run.history.append_batch',
 				side_effect=history.HistoryException('cannot write'),
-			):
-				run.main(dryrun=False)
+			),
+		):
+			run.main(dryrun=False)
 
 		assert_logged(
 			capsys.readouterr().out,
