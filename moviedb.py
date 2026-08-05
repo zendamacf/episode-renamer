@@ -3,6 +3,8 @@ import json
 import re
 from datetime import datetime
 
+import log
+
 
 class MovieDBException(Exception):
 	pass
@@ -73,7 +75,7 @@ def get_series(query: str, apikey: str) -> list:
 	found = []
 	for r in response.get('results', []):
 		if 'first_air_date' not in r:
-			print('Ignoring missing airdate {}.'.format(r['name']))
+			log.warn('Ignoring missing airdate {}.'.format(r['name']))
 			continue
 
 		found.append({

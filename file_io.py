@@ -8,6 +8,8 @@ import os
 import re
 import shutil
 
+import log
+
 
 class FileIOException(Exception):
 	pass
@@ -27,7 +29,7 @@ def find_files(directory) -> list:
 	"""
 	Gets a list of video files in a given directory
 	"""
-	print('Checking for files in {}'.format(directory))
+	log.info('Checking for files in {}'.format(directory))
 	found = []
 	for filename in sorted(os.listdir(directory), key=str.lower):
 		if os.path.isfile(os.path.join(directory, filename)):
@@ -35,7 +37,7 @@ def find_files(directory) -> list:
 				try:
 					found.append(parse_filename(filename))
 				except FileIOException as e:
-					print(f'Error parsing {filename}: {repr(e)}')
+					log.error(f'Error parsing {filename}: {repr(e)}')
 	return found
 
 
@@ -54,9 +56,12 @@ def parse_filename(filename: str) -> dict:
 	Uses regex to pull series name, season and episode numbers
 	"""
 	regex_parsers = [
-		# flake8: noqa: E501
+		# flake8: noqa: E501 (line too long)
+		# S##E## style, optional year: "Show.S01E01.mkv", "Show 2020 S01E01.mp4"
 		r"^(?P<name>.*?)\.*?(\d{4})?\.*?s *(?P<s>\d+) *e *(?P<e>\d+).*\.(?P<ext>.*?)$",
+		# Season x episode: "Show 1x01.mkv", "Show.12x05.avi"
 		r"^(?P<name>.*?)(?P<s>\d+)x(?P<e>\d+).*\.(?P<ext>.*?)$",
+		# Packed season+episode digits: "Show 101.mp4" → S1E01, "Show.1205.mkv" → S12E05
 		r"^(?P<name>(?:.*?\D|))(?P<s>\d{1,2})(?P<e>\d{2})(?:\D.*|)\.(?P<ext>.*?)$",
 	]
 	for parser in regex_parsers:
@@ -84,9 +89,9 @@ def prompt_user(orig_name: str, series_list: list) -> dict:
 	"""
 	for count, value in enumerate(series_list):
 		if value['year'] is not None:
-			print('({}) {} ({})'.format(count + 1, value['name'], value['year']))
+			log.plain('({}) {} ({})'.format(count + 1, value['name'], value['year']))
 		else:
-			print('({}) {}'.format(count + 1, value['name']))
+			log.plain('({}) {}'.format(count + 1, value['name']))
 	choice = input(f'Select correct series for {orig_name} ("i" to ignore): ')
 	if choice == '':
 		return series_list[0]
@@ -123,8 +128,8 @@ def get_filename(
 	if int(episode) < 10:
 		episode = '0{}'.format(episode)
 	new_filename = f'S{season}E{episode} - {episodename}.{extension}'
-	print('Current: {}'.format(filename))
-	print('New: {}'.format(new_filename))
+	log.info('Current: {}'.format(filename))
+	log.info('New: {}'.format(new_filename))
 	return winsafe_filename(new_filename)
 
 
@@ -154,4 +159,4 @@ def rename_and_move(
 	if os.path.exists(new_file):
 		raise FileIOException('{} already Exists.'.format(new_file,))
 	shutil.move(curr_file, new_file)
-	print('Successfully moved.')
+	log.success('Successfully moved.')

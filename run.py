@@ -3,6 +3,7 @@
 import argparse
 
 import file_io as io
+import log
 import moviedb
 
 parser = argparse.ArgumentParser(prog='Episode Renamer')
@@ -17,12 +18,12 @@ def main(dryrun: bool) -> None:
 	"""
 	Main function
 	"""
-	print('Running renamer...')
+	log.info('Running renamer...')
 	config = io.read_config('config.json')
 
 	found = io.find_files(config['HOME'])
 	if len(found) == 0:
-		print('No files found')
+		log.warn('No files found')
 		return
 
 	matches = {}
@@ -31,12 +32,12 @@ def main(dryrun: bool) -> None:
 		if f['name'] in matches:
 			# Have previously used this series, so use it again
 			chosen = matches[f['name']]
-			print(f"Using previous match {chosen['name']} for {f['name']}")
+			log.info(f"Using previous match {chosen['name']} for {f['name']}")
 		else:
 			# New series, so look it up
 			series_list = moviedb.get_series(f['name'], config['MOVIEDB_KEY'])
 			if not series_list:
-				print('No series matches for {}'.format(f['name']))
+				log.warn('No series matches for {}'.format(f['name']))
 				continue
 
 			if len(series_list) == 1:
@@ -44,7 +45,7 @@ def main(dryrun: bool) -> None:
 			else:
 				chosen = io.prompt_user(f['name'], series_list)
 				if chosen is None:
-					print('Ignoring {}'.format(f['name']))
+					log.warn('Ignoring {}'.format(f['name']))
 					continue
 
 			# Save for future lookups
@@ -57,7 +58,7 @@ def main(dryrun: bool) -> None:
 			config['MOVIEDB_KEY']
 		)
 		if episodename is None:
-			print(f"No episode found for {f['name']} S{f['season']}E{f['episode']}")
+			log.warn(f"No episode found for {f['name']} S{f['season']}E{f['episode']}")
 			continue
 
 		new_filename = io.get_filename(
@@ -68,7 +69,7 @@ def main(dryrun: bool) -> None:
 			f['extension']
 		)
 		if dryrun:
-			print(f"[DRYRUN] Skipping rename from {f['filename']} to {new_filename}")
+			log.warn(f"[DRYRUN] Skipping rename from {f['filename']} to {new_filename}")
 		else:
 			io.rename_and_move(
 				config['HOME'],
