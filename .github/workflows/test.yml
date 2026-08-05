@@ -74,6 +74,9 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # Prefer the PR branch tip so we see Dependabot fragment commits
+          # pushed by the dependabot-changelog job in this same workflow run.
+          ref: ${{ github.head_ref || github.ref }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
