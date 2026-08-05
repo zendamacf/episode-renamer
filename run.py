@@ -13,7 +13,7 @@ parser = argparse.ArgumentParser(prog='Episode Renamer')
 parser.add_argument(
 	'--dryrun',
 	action='store_true',
-	help='Instead of renaming the files, just display what changes would be made.'
+	help='Instead of renaming the files, just display what changes would be made.',
 )
 parser.add_argument(
 	'--undo',
@@ -21,13 +21,13 @@ parser.add_argument(
 	const=1,
 	type=int,
 	metavar='N',
-	help='Undo the last N rename batch(es) (default: 1).'
+	help='Undo the last N rename batch(es) (default: 1).',
 )
 
 
 def _series_label(series: dict) -> str:
 	if series.get('year') is not None:
-		return f"{series['name']} ({series['year']})"
+		return f'{series["name"]} ({series["year"]})'
 	return series['name']
 
 
@@ -47,7 +47,7 @@ def _process_file(
 	if f['name'] in matches:
 		chosen = matches[f['name']]
 		log.info(
-			f"{_series_label(chosen)} for {f['name']}",
+			f'{_series_label(chosen)} for {f["name"]}',
 			prefix='Cached',
 		)
 	else:
@@ -59,7 +59,7 @@ def _process_file(
 		if len(series_list) == 1:
 			chosen = series_list[0]
 			log.info(
-				f"{_series_label(chosen)} for {f['name']}",
+				f'{_series_label(chosen)} for {f["name"]}',
 				prefix='Matched',
 			)
 		else:
@@ -68,31 +68,24 @@ def _process_file(
 				log.warn(f['name'], prefix='Ignoring')
 				return 'skipped'
 			log.info(
-				f"{_series_label(chosen)} for {f['name']}",
+				f'{_series_label(chosen)} for {f["name"]}',
 				prefix='Selected',
 			)
 
 		matches[f['name']] = chosen
 
 	episodename = moviedb.get_episode(
-		chosen['id'],
-		f['season'],
-		f['episode'],
-		config['MOVIEDB_KEY']
+		chosen['id'], f['season'], f['episode'], config['MOVIEDB_KEY']
 	)
 	if episodename is None:
 		log.warn(
-			f"{f['name']} S{f['season']}E{f['episode']}",
+			f'{f["name"]} S{f["season"]}E{f["episode"]}',
 			prefix='No episode',
 		)
 		return 'skipped'
 
 	new_filename = io.get_filename(
-		f['filename'],
-		f['season'],
-		f['episode'],
-		episodename,
-		f['extension']
+		f['filename'], f['season'], f['episode'], episodename, f['extension']
 	)
 	if dryrun:
 		log.warn(
@@ -109,7 +102,7 @@ def _process_file(
 		new_filename,
 		chosen['name'],
 		chosen['year'],
-		f['season']
+		f['season'],
 	)
 	return {'src': src, 'dest': dest}
 
@@ -182,7 +175,7 @@ def undo_batches(n: int, dryrun: bool) -> None:
 
 	for batch in reversed(to_undo):
 		log.info(
-			f"{batch['id']} ({len(batch['moves'])} file(s))",
+			f'{batch["id"]} ({len(batch["moves"])} file(s))',
 			prefix='Batch',
 		)
 		failed_moves = []
@@ -193,10 +186,12 @@ def undo_batches(n: int, dryrun: bool) -> None:
 				failed += 1
 				failed_moves.append(move)
 		if not dryrun and failed_moves:
-			updated_tail.append({
-				'id': batch['id'],
-				'moves': list(reversed(failed_moves)),
-			})
+			updated_tail.append(
+				{
+					'id': batch['id'],
+					'moves': list(reversed(failed_moves)),
+				}
+			)
 
 	# updated_tail was built newest-first; restore oldest-first order
 	updated_tail.reverse()
@@ -247,7 +242,7 @@ def main(dryrun: bool) -> None:
 		try:
 			result = _process_file(f, config, matches, dryrun)
 		except (moviedb.MovieDBException, io.FileIOException, OSError) as e:
-			log.error(f"{f['filename']}: {e}", prefix='Failed')
+			log.error(f'{f["filename"]}: {e}', prefix='Failed')
 			failed += 1
 			continue
 

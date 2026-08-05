@@ -30,9 +30,7 @@ class TestLoadHistory:
 			history.load_history()
 
 	def test_invalid_format_raises(self, isolate_rename_history):
-		isolate_rename_history.write_text(
-			json.dumps({'version': 1, 'batches': 'nope'})
-		)
+		isolate_rename_history.write_text(json.dumps({'version': 1, 'batches': 'nope'}))
 		with pytest.raises(history.HistoryException, match='Invalid'):
 			history.load_history()
 
@@ -52,9 +50,7 @@ class TestSaveAndAppend:
 		history.append_batch([])
 		assert not isolate_rename_history.exists()
 
-	def test_append_trims_to_max_batches(
-		self, isolate_rename_history, monkeypatch
-	):
+	def test_append_trims_to_max_batches(self, isolate_rename_history, monkeypatch):
 		monkeypatch.setattr(history, 'MAX_BATCHES', 3)
 		for i in range(5):
 			history.append_batch([{'src': f'/s{i}', 'dest': f'/d{i}'}])
@@ -65,14 +61,14 @@ class TestSaveAndAppend:
 		assert data['batches'][-1]['moves'][0]['src'] == '/s4'
 
 	def test_save_is_atomic_replace(self, isolate_rename_history):
-		history.save_history({
-			'version': 1,
-			'batches': [{'id': 'x', 'moves': []}],
-		})
-		assert isolate_rename_history.exists()
-		leftovers = list(
-			isolate_rename_history.parent.glob('.rename_history_*')
+		history.save_history(
+			{
+				'version': 1,
+				'batches': [{'id': 'x', 'moves': []}],
+			}
 		)
+		assert isolate_rename_history.exists()
+		leftovers = list(isolate_rename_history.parent.glob('.rename_history_*'))
 		assert leftovers == []
 
 	def test_save_replace_failure_raises(self, isolate_rename_history, monkeypatch):
@@ -84,14 +80,10 @@ class TestSaveAndAppend:
 		with pytest.raises(history.HistoryException, match='Failed to write'):
 			history.save_history({'version': 1, 'batches': []})
 
-		leftovers = list(
-			isolate_rename_history.parent.glob('.rename_history_*')
-		)
+		leftovers = list(isolate_rename_history.parent.glob('.rename_history_*'))
 		assert leftovers == []
 
-	def test_save_cleanup_ignores_unlink_errors(
-		self, isolate_rename_history, monkeypatch
-	):
+	def test_save_cleanup_ignores_unlink_errors(self, isolate_rename_history, monkeypatch):
 		def fail_replace(src, dst):
 			raise OSError('disk full')
 

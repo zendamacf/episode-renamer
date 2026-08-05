@@ -41,9 +41,7 @@ class TestLogColors:
 
 	def test_promptBOLDCYAN_when_tty(self):
 		with patch('sys.stdout.isatty', return_value=True):
-			assert log.prompt('Select: ') == (
-				f'{log.BOLD}{log.CYAN}Select: {log.RESET}'
-			)
+			assert log.prompt('Select: ') == (f'{log.BOLD}{log.CYAN}Select: {log.RESET}')
 
 
 class TestLogPrefix:
@@ -53,17 +51,15 @@ class TestLogPrefix:
 			log.info('S01E01 - Pilot.mkv', prefix='New')
 		out = capsys.readouterr().out
 		assert out == (
-			f"{'Current:'.ljust(log.PREFIX_WIDTH)}file.mkv\n"
-			f"{'New:'.ljust(log.PREFIX_WIDTH)}S01E01 - Pilot.mkv\n"
+			f'{"Current:".ljust(log.PREFIX_WIDTH)}file.mkv\n'
+			f'{"New:".ljust(log.PREFIX_WIDTH)}S01E01 - Pilot.mkv\n'
 		)
 
 	def test_prefix_colored_body_plain_when_tty(self, capsys):
 		with patch('sys.stdout.isatty', return_value=True):
 			log.info('file.mkv', prefix='Current')
 		label = 'Current:'.ljust(log.PREFIX_WIDTH)
-		assert capsys.readouterr().out == (
-			f'{log.BOLD}{log.CYAN}{label}{log.RESET}file.mkv\n'
-		)
+		assert capsys.readouterr().out == (f'{log.BOLD}{log.CYAN}{label}{log.RESET}file.mkv\n')
 
 	def test_success_prefix_uses_green(self, capsys):
 		with patch('sys.stdout.isatty', return_value=True):
@@ -87,8 +83,7 @@ class TestLogPrefix:
 class TestAssertLogged:
 	def test_accepts_prefixed_and_plain_expectations(self):
 		output = (
-			f"{'Done:'.ljust(log.PREFIX_WIDTH)}1 moved, 0 skipped, 0 failed\n"
-			'Running renamer...\n'
+			f'{"Done:".ljust(log.PREFIX_WIDTH)}1 moved, 0 skipped, 0 failed\nRunning renamer...\n'
 		)
 		assert_logged(
 			output,

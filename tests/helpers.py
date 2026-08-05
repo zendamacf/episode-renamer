@@ -34,6 +34,4 @@ def assert_logged(output: str, *expectations: tuple[str, str] | str) -> None:
 		else:
 			prefix, message = item
 			needle = f'{prefix}:'.ljust(log.PREFIX_WIDTH) + message
-		assert needle in output, (
-			f'Expected {needle!r} in logged output:\n{output}'
-		)
+		assert needle in output, f'Expected {needle!r} in logged output:\n{output}'
