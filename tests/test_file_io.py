@@ -246,3 +246,112 @@ class TestRenameAndMove:
 				str(home), orig, str(moved), new_name,
 				'Show', 2005, 1
 			)
+
+	def test_sanitizes_unsafe_show_name(self, dirs):
+		home, moved = dirs
+		orig = 'Show S01E01.mp4'
+		new_name = 'S01E01 - Pilot.mp4'
+		(home / orig).write_text('video')
+
+		io.rename_and_move(
+			str(home), orig, str(moved), new_name,
+			'Evil/Name:Show', 2005, 1
+		)
+
+		expected = moved / 'EvilNameShow (2005)' / 'Season 1' / new_name
+		assert expected.exists()
+		assert not (moved / 'Evil').exists()
+		assert not (home / orig).exists()
+
+	def test_empty_sanitized_show_name_raises(self, dirs):
+		home, moved = dirs
+		orig = 'Show S01E01.mp4'
+		new_name = 'S01E01 - Pilot.mp4'
+		(home / orig).write_text('video')
+
+		with pytest.raises(
+			io.FileIOException, match='empty after sanitization'
+		):
+			io.rename_and_move(
+				str(home), orig, str(moved), new_name,
+				'://', 2005, 1
+			)
+
+	def test_cross_device_move_falls_back_to_copy(
+		self, dirs, monkeypatch
+	):
+		home, moved = dirs
+		orig = 'Show S01E01.mp4'
+		new_name = 'S01E01 - Pilot.mp4'
+		(home / orig).write_text('video')
+
+		def fail_replace(src, dst):
+			raise OSError('Invalid cross-device link')
+
+		monkeypatch.setattr(io.os, 'replace', fail_replace)
+
+		io.rename_and_move(
+			str(home), orig, str(moved), new_name,
+			'Show', 2005, 1
+		)
+
+		expected = moved / 'Show (2005)' / 'Season 1' / new_name
+		assert expected.exists()
+		assert expected.read_text() == 'video'
+		assert not (home / orig).exists()
+
+	def test_cross_device_copy_failure_cleans_reserved_dest(
+		self, dirs, monkeypatch
+	):
+		home, moved = dirs
+		orig = 'Show S01E01.mp4'
+		new_name = 'S01E01 - Pilot.mp4'
+		(home / orig).write_text('video')
+
+		def fail_replace(src, dst):
+			raise OSError('Invalid cross-device link')
+
+		def fail_copy(src, dst):
+			raise OSError('disk full')
+
+		monkeypatch.setattr(io.os, 'replace', fail_replace)
+		monkeypatch.setattr(io.shutil, 'copy2', fail_copy)
+
+		with pytest.raises(io.FileIOException, match='Failed to move'):
+			io.rename_and_move(
+				str(home), orig, str(moved), new_name,
+				'Show', 2005, 1
+			)
+
+		expected = moved / 'Show (2005)' / 'Season 1' / new_name
+		assert not expected.exists()
+		assert (home / orig).exists()
+
+	def test_cross_device_cleanup_ignores_unlink_errors(
+		self, dirs, monkeypatch
+	):
+		home, moved = dirs
+		orig = 'Show S01E01.mp4'
+		new_name = 'S01E01 - Pilot.mp4'
+		(home / orig).write_text('video')
+
+		def fail_replace(src, dst):
+			raise OSError('Invalid cross-device link')
+
+		def fail_copy(src, dst):
+			raise OSError('disk full')
+
+		def fail_unlink(path):
+			raise OSError('busy')
+
+		monkeypatch.setattr(io.os, 'replace', fail_replace)
+		monkeypatch.setattr(io.shutil, 'copy2', fail_copy)
+		monkeypatch.setattr(io.os, 'unlink', fail_unlink)
+
+		with pytest.raises(io.FileIOException, match='Failed to move'):
+			io.rename_and_move(
+				str(home), orig, str(moved), new_name,
+				'Show', 2005, 1
+			)
+
+		assert (home / orig).exists()
