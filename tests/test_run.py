@@ -7,6 +7,16 @@ import run
 from helpers import OFFICE, OFFICE_UK
 
 
+class TestSeriesLabel:
+	def test_includes_year_when_present(self):
+		assert run._series_label(OFFICE) == 'The Office (2005)'
+
+	def test_omits_year_when_missing(self):
+		assert run._series_label({'name': 'Mystery Show', 'year': None}) == (
+			'Mystery Show'
+		)
+
+
 class TestMain:
 	def test_no_files_found(self, config_for_dirs, capsys):
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -47,14 +57,16 @@ class TestMain:
 
 		output = capsys.readouterr().out
 		assert (home / filename).exists()
-		assert '[DRYRUN] Skipping rename from The Office S01E01.mp4' in output
+		assert '[DRY-RUN] No files will be moved' in output
+		assert '[DRY-RUN] Skipping rename from The Office S01E01.mp4' in output
 		assert 'S01E01 - Pilot.mp4' in output
+		assert 'Done: 0 moved, 1 skipped, 0 failed' in output
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_rename_moves_file_to_show_folder(
 		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs
+		media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
@@ -68,6 +80,34 @@ class TestMain:
 		expected = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
 		assert expected.exists()
 		assert not (home / filename).exists()
+		output = capsys.readouterr().out
+		assert 'Matched The Office (2005) for The Office' in output
+		assert f'Successfully moved to {expected}' in output
+		assert 'Done: 1 moved, 0 skipped, 0 failed' in output
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_duplicate_destination_logs_and_continues(
+		self, mock_get_series, mock_get_episode,
+		media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		filename = 'The Office S01E01.mp4'
+		(home / filename).write_text('video')
+		dest_dir = moved / 'The Office (2005)' / 'Season 1'
+		dest_dir.mkdir(parents=True)
+		(dest_dir / 'S01E01 - Pilot.mp4').write_text('existing')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		assert (home / filename).exists()
+		output = capsys.readouterr().out
+		assert 'Failed processing The Office S01E01.mp4' in output
+		assert 'already Exists' in output
+		assert 'Done: 0 moved, 0 skipped, 1 failed' in output
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
@@ -86,7 +126,7 @@ class TestMain:
 
 		mock_get_series.assert_called_once()
 		output = capsys.readouterr().out
-		assert 'Using previous match The Office for The Office' in output
+		assert 'Using previous match The Office (2005) for The Office' in output
 		season_dir = moved / 'The Office (2005)' / 'Season 1'
 		assert (season_dir / 'S01E01 - Pilot.mp4').exists()
 		assert (season_dir / 'S01E02 - Diversity Day.mp4').exists()
