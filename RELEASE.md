@@ -2,7 +2,7 @@
 
 Episode Renamer uses [Towncrier](https://towncrier.readthedocs.io/) for changelog management and a tag-based GitHub Actions workflow for publishing releases.
 
-**Current version:** 0.1.0
+**Current version:** 0.2.0
 
 ## How releases work
 
@@ -11,7 +11,6 @@ Episode Renamer uses [Towncrier](https://towncrier.readthedocs.io/) for changelo
 Add a news fragment to `changes/` in each pull request that includes a user-facing change:
 
 ```bash
-pip install towncrier
 towncrier create 42.feature.md --content "Added dry-run mode"
 ```
 
@@ -28,24 +27,21 @@ Dependabot pull requests get a `misc` fragment committed automatically by CI bef
 
 ### Cutting a release
 
-1. Bump `version` in `pyproject.toml`.
-2. Build the changelog (removes consumed fragments and updates `CHANGELOG.md`):
+1. Prep the release (bumps `version` in `pyproject.toml` and builds the changelog):
 
    ```bash
-   towncrier build --version 0.1.1
+   ./scripts/prep_release.py 0.2.1
    ```
 
-3. Commit the version bump and changelog update.
-4. Tag and push:
+2. Commit the version bump and changelog update.
+3. Tag and push:
 
    ```bash
-   git tag v0.1.1
-   git push origin v0.1.1
+   git tag v0.2.1
+   git push origin v0.2.1
    ```
 
 The [release workflow](.github/workflows/release.yml) verifies the tag matches `pyproject.toml`, ensures no fragments remain in `changes/`, runs tests, and publishes a GitHub release using the matching `CHANGELOG.md` section.
-
-Install towncrier with `pip install towncrier`.
 
 ---
 
