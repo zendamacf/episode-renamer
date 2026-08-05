@@ -80,3 +80,10 @@ def config_for_dirs(media_dirs):
 		'HOME': str(home),
 		'MOVED': str(moved),
 	}
+
+
+@pytest.fixture(autouse=True)
+def isolate_rename_history(tmp_path, monkeypatch):
+	path = tmp_path / 'rename_history.json'
+	monkeypatch.setattr('history.HISTORY_PATH', str(path))
+	return path

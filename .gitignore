@@ -1,5 +1,6 @@
 __pycache__/*
 config.json
+rename_history.json
 
 tests/__pycache__/*
 
