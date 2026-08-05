@@ -1,6 +1,6 @@
 [project]
 name = "episode-renamer"
-version = "0.1.0"
+version = "0.2.0"
 description = "Rename TV episode files using The Movie Database"
 readme = "README.md"
 requires-python = ">=3.14"
