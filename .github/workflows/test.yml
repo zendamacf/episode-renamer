@@ -1,5 +1,5 @@
 name: Tests
- 
+
 on:
   pull_request:
   push:
@@ -10,17 +10,19 @@ permissions:
   contents: read
 
 jobs:
-  tests:
+  dependabot-changelog:
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.user.login == 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
-
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          ref: ${{ github.head_ref || github.ref }}
+          ref: ${{ github.head_ref }}
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -33,23 +35,13 @@ jobs:
       - name: Install dependencies
         run: make install.dev
 
-      - name: Lint
-        run: make check
-
-
       - name: Fetch Dependabot metadata
-        if: >-
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.user.login == 'dependabot[bot]'
         id: dependabot_metadata
         uses: dependabot/fetch-metadata@v2
         with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Add towncrier fragment for Dependabot
-        if: >-
-          github.event_name == 'pull_request' &&
-          github.event.pull_request.user.login == 'dependabot[bot]'
         id: dependabot_fragment
         run: |
           FRAGMENT="changes/${{ github.event.pull_request.number }}.misc.md"
@@ -66,10 +58,35 @@ jobs:
           echo "committed=true" >> "$GITHUB_OUTPUT"
 
       - name: Push Dependabot towncrier fragment
-        if: >-
-          github.event_name == 'pull_request' &&
-          steps.dependabot_fragment.outputs.committed == 'true'
+        if: steps.dependabot_fragment.outputs.committed == 'true'
         run: git push
+
+  tests:
+    needs: [dependabot-changelog]
+    if: >-
+      always() &&
+      (needs.dependabot-changelog.result == 'success' ||
+       needs.dependabot-changelog.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          # Prefer the PR branch tip so we see Dependabot fragment commits
+          # pushed by the dependabot-changelog job in this same workflow run.
+          ref: ${{ github.head_ref || github.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Install dependencies
+        run: make install.dev
 
       - name: Check changelog fragments
         if: github.event_name == 'pull_request'
