@@ -1,7 +1,5 @@
 from unittest.mock import patch
 
-import pytest
-
 import moviedb
 import run
 from helpers import OFFICE, OFFICE_UK
@@ -206,8 +204,8 @@ class TestMain:
 		assert 'No episode found for The Office S1E1' in capsys.readouterr().out
 
 	@patch('run.moviedb.get_series')
-	def test_moviedb_error_propagates(
-		self, mock_get_series, media_dirs, config_for_dirs
+	def test_moviedb_error_skips_file(
+		self, mock_get_series, media_dirs, config_for_dirs, capsys
 	):
 		home, _ = media_dirs
 		filename = 'The Office S01E01.mp4'
@@ -215,5 +213,64 @@ class TestMain:
 		mock_get_series.side_effect = moviedb.MovieDBException('API error')
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
-			with pytest.raises(moviedb.MovieDBException, match='API error'):
+			run.main(dryrun=False)
+
+		assert (home / filename).exists()
+		output = capsys.readouterr().out
+		assert 'Failed processing The Office S01E01.mp4: API error' in output
+		assert 'Done: 0 moved, 0 skipped, 1 failed' in output
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_moviedb_error_continues_with_remaining_files(
+		self, mock_get_series, mock_get_episode,
+		media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		first = 'Bad Show S01E01.mp4'
+		second = 'The Office S01E01.mp4'
+		(home / first).write_text('video')
+		(home / second).write_text('video')
+		mock_get_series.side_effect = [
+			moviedb.MovieDBException('API error'),
+			[OFFICE],
+		]
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		assert (home / first).exists()
+		expected = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		assert expected.exists()
+		assert not (home / second).exists()
+		output = capsys.readouterr().out
+		assert 'Failed processing Bad Show S01E01.mp4: API error' in output
+		assert 'Done: 1 moved, 0 skipped, 1 failed' in output
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_oserror_skips_file_and_continues(
+		self, mock_get_series, mock_get_episode,
+		media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		first = 'The Office S01E01.mp4'
+		second = 'The Office S01E02.mp4'
+		(home / first).write_text('video')
+		(home / second).write_text('video')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.side_effect = ['Pilot', 'Diversity Day']
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			with patch(
+				'run.io.rename_and_move',
+				side_effect=[OSError('disk full'), None],
+			):
 				run.main(dryrun=False)
+
+		assert (home / first).exists()
+		assert (home / second).exists()
+		output = capsys.readouterr().out
+		assert 'Failed processing The Office S01E01.mp4: disk full' in output
+		assert 'Done: 1 moved, 0 skipped, 1 failed' in output
