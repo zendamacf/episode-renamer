@@ -1,3 +1,5 @@
+import log
+
 PARSEABLE_FILENAMES = {
 	's01e01': 'The Office S01E01.mp4',
 	'1x01': 'The Office 1x01.mkv',
@@ -17,3 +19,21 @@ TMDB_EPISODE_RESPONSE = {'name': 'Pilot'}
 
 OFFICE = {'id': 2316, 'name': 'The Office', 'year': 2005}
 OFFICE_UK = {'id': 9999, 'name': 'The Office', 'year': 2010}
+
+
+def assert_logged(output: str, *expectations: tuple[str, str] | str) -> None:
+	"""
+	Assert logged output contains the given entries.
+
+	Pass ``(prefix, message)`` for a padded prefix line matching
+	``log.PREFIX_WIDTH``, or a plain string for a substring match.
+	"""
+	for item in expectations:
+		if isinstance(item, str):
+			needle = item
+		else:
+			prefix, message = item
+			needle = f'{prefix}:'.ljust(log.PREFIX_WIDTH) + message
+		assert needle in output, (
+			f'Expected {needle!r} in logged output:\n{output}'
+		)

@@ -4,6 +4,7 @@ import pytest
 import requests
 
 import moviedb
+from helpers import assert_logged
 
 
 class TestStripYear:
@@ -162,7 +163,7 @@ class TestGetSeries:
 		results = moviedb.get_series('No Date Show', 'test-key')
 
 		assert results == []
-		assert 'Ignoring missing airdate No Date Show.' in capsys.readouterr().out
+		assert_logged(capsys.readouterr().out, ('Ignoring', 'No Date Show'))
 
 	@patch('moviedb._request')
 	def test_empty_results(self, mock_request):

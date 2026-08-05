@@ -37,7 +37,7 @@ def find_files(directory) -> list:
 	"""
 	Gets a list of video files in a given directory
 	"""
-	log.info('Checking for files in {}'.format(directory))
+	log.info(directory, prefix='Checking')
 	found = []
 	for filename in sorted(os.listdir(directory), key=str.lower):
 		if os.path.isfile(os.path.join(directory, filename)):
@@ -45,7 +45,7 @@ def find_files(directory) -> list:
 				try:
 					found.append(parse_filename(filename))
 				except FileIOException as e:
-					log.error(f'Error parsing {filename}: {repr(e)}')
+					log.error(f'{filename}: {repr(e)}', prefix='Error')
 	return found
 
 
@@ -137,8 +137,8 @@ def get_filename(
 	if int(episode) < 10:
 		episode = '0{}'.format(episode)
 	new_filename = f'S{season}E{episode} - {episodename}.{extension}'
-	log.info('Current: {}'.format(filename))
-	log.info('New: {}'.format(new_filename))
+	log.info(filename, prefix='Current')
+	log.info(new_filename, prefix='New')
 	return winsafe_filename(new_filename)
 
 
@@ -208,17 +208,11 @@ def rename_and_move(
 	show_folder = os.path.join(new_directory, folder_name)
 	season_folder = os.path.join(show_folder, 'Season {}'.format(season))
 
-	created_show = not os.path.exists(show_folder)
-	created_season = not os.path.exists(season_folder)
 	os.makedirs(season_folder, exist_ok=True)
-	if created_show:
-		log.info(f'Created show folder: {show_folder}')
-	if created_season:
-		log.info(f'Created season folder: {season_folder}')
 
 	curr_file = os.path.join(orig_directory, orig_filename)
 	new_file = os.path.join(season_folder, new_filename)
 	move_file(curr_file, new_file)
 
-	log.success(f'Successfully moved to {new_file}')
+	log.success(new_file, prefix='Moved')
 	return new_file

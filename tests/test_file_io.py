@@ -4,7 +4,7 @@ import pytest
 
 import file_io as io
 import log
-from helpers import PARSEABLE_FILENAMES
+from helpers import PARSEABLE_FILENAMES, assert_logged
 
 
 class TestReadConfig:
@@ -127,7 +127,7 @@ class TestFindFiles:
 
 		assert len(found) == 1
 		assert found[0]['filename'] == PARSEABLE_FILENAMES['s01e01']
-		assert 'Error parsing bad name.mp4' in capsys.readouterr().out
+		assert_logged(capsys.readouterr().out, ('Error', 'bad name.mp4'))
 
 	def test_ignores_non_video_files(self, tmp_path):
 		(tmp_path / 'notes.txt').write_text('notes')
@@ -210,10 +210,7 @@ class TestRenameAndMove:
 		expected = moved / 'The Office (2005)' / 'Season 1' / new_name
 		assert expected.exists()
 		assert not (home / orig).exists()
-		output = capsys.readouterr().out
-		assert f'Created show folder: {moved / "The Office (2005)"}' in output
-		assert f'Created season folder: {expected.parent}' in output
-		assert f'Successfully moved to {expected}' in output
+		assert_logged(capsys.readouterr().out, ('Moved', str(expected)))
 
 	def test_moves_file_without_year(self, dirs):
 		home, moved = dirs
@@ -244,10 +241,10 @@ class TestRenameAndMove:
 
 		assert (season_dir / new_name).exists()
 		assert not (home / orig).exists()
-		output = capsys.readouterr().out
-		assert 'Created show folder' not in output
-		assert 'Created season folder' not in output
-		assert f'Successfully moved to {season_dir / new_name}' in output
+		assert_logged(
+			capsys.readouterr().out,
+			('Moved', str(season_dir / new_name)),
+		)
 
 	def test_duplicate_destination_raises(self, dirs):
 		home, moved = dirs
