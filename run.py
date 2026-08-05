@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 from typing import Literal
 
 import file_io as io
@@ -104,6 +105,10 @@ def main(dryrun: bool) -> None:
 		log.warn('[DRY-RUN] No files will be moved')
 
 	config = io.read_config('config.json')
+	env_key = os.environ.get('MOVIEDB_KEY')
+	if env_key:
+		config['MOVIEDB_KEY'] = env_key
+		log.info('Using MOVIEDB_KEY from environment')
 
 	found = io.find_files(config['HOME'])
 	if len(found) == 0:
