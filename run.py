@@ -47,23 +47,30 @@ def _process_file(
 	if f['name'] in matches:
 		chosen = matches[f['name']]
 		log.info(
-			f"Using previous match {_series_label(chosen)} for {f['name']}"
+			f"{_series_label(chosen)} for {f['name']}",
+			prefix='Cached',
 		)
 	else:
 		series_list = moviedb.get_series(f['name'], config['MOVIEDB_KEY'])
 		if not series_list:
-			log.warn('No series matches for {}'.format(f['name']))
+			log.warn(f['name'], prefix='No match')
 			return 'skipped'
 
 		if len(series_list) == 1:
 			chosen = series_list[0]
-			log.info(f"Matched {_series_label(chosen)} for {f['name']}")
+			log.info(
+				f"{_series_label(chosen)} for {f['name']}",
+				prefix='Matched',
+			)
 		else:
 			chosen = io.prompt_user(f['name'], series_list)
 			if chosen is None:
-				log.warn('Ignoring {}'.format(f['name']))
+				log.warn(f['name'], prefix='Ignoring')
 				return 'skipped'
-			log.info(f"Selected {_series_label(chosen)} for {f['name']}")
+			log.info(
+				f"{_series_label(chosen)} for {f['name']}",
+				prefix='Selected',
+			)
 
 		matches[f['name']] = chosen
 
@@ -75,8 +82,8 @@ def _process_file(
 	)
 	if episodename is None:
 		log.warn(
-			f"No episode found for {f['name']} "
-			f"S{f['season']}E{f['episode']}"
+			f"{f['name']} S{f['season']}E{f['episode']}",
+			prefix='No episode',
 		)
 		return 'skipped'
 
@@ -89,8 +96,8 @@ def _process_file(
 	)
 	if dryrun:
 		log.warn(
-			f"[DRY-RUN] Skipping rename from {f['filename']} "
-			f"to {new_filename}"
+			f'{f["filename"]} -> {new_filename}',
+			prefix='Dry-run',
 		)
 		return 'skipped'
 
@@ -114,25 +121,25 @@ def _restore_move(move: dict, dryrun: bool, moved_root: str) -> bool:
 	src = move['src']
 	dest = move['dest']
 	if dryrun:
-		log.warn(f'[DRY-RUN] Would restore {dest} -> {src}')
+		log.warn(f'{dest} -> {src}', prefix='Dry-run')
 		return True
 
 	if not os.path.exists(dest):
-		log.error(f'Cannot undo: destination missing: {dest}')
+		log.error(f'destination missing: {dest}', prefix='Cannot')
 		return False
 	if os.path.exists(src):
-		log.error(f'Cannot undo: original path occupied: {src}')
+		log.error(f'original path occupied: {src}', prefix='Cannot')
 		return False
 
 	try:
 		os.makedirs(os.path.dirname(src) or '.', exist_ok=True)
 		io.move_file(dest, src)
 	except (io.FileIOException, OSError) as e:
-		log.error(f'Failed to restore {dest} -> {src}: {e}')
+		log.error(f'{dest} -> {src}: {e}', prefix='Failed')
 		return False
 
 	io.remove_empty_parents(dest, stop_at=moved_root)
-	log.success(f'Restored {src}')
+	log.success(src, prefix='Restored')
 	return True
 
 
@@ -141,28 +148,29 @@ def undo_batches(n: int, dryrun: bool) -> None:
 	Undo the last n rename batches (newest first).
 	"""
 	if n < 1:
-		log.error('Undo count must be at least 1')
+		log.error('Undo count must be at least 1', prefix='Error')
 		return
 
-	log.info(f'Undoing last {n} batch(es)...')
+	log.info(f'last {n} batch(es)...', prefix='Undoing')
 	if dryrun:
-		log.warn('[DRY-RUN] No files will be moved')
+		log.warn('No files will be moved', prefix='Dry-run')
 
 	config = io.read_config('config.json')
 	try:
 		data = history.load_history()
 	except history.HistoryException as e:
-		log.error(str(e))
+		log.error(str(e), prefix='Error')
 		return
 
 	batches = data['batches']
 	if not batches:
-		log.warn('No rename history to undo')
+		log.warn('No rename history to undo', prefix='Skip')
 		return
 
 	if n > len(batches):
 		log.warn(
-			f'Requested {n} batch(es) but only {len(batches)} available'
+			f'Requested {n} batch(es) but only {len(batches)} available',
+			prefix='Warn',
 		)
 		n = len(batches)
 
@@ -173,7 +181,10 @@ def undo_batches(n: int, dryrun: bool) -> None:
 	failed = 0
 
 	for batch in reversed(to_undo):
-		log.info(f"Undoing batch {batch['id']} ({len(batch['moves'])} file(s))")
+		log.info(
+			f"{batch['id']} ({len(batch['moves'])} file(s))",
+			prefix='Batch',
+		)
 		failed_moves = []
 		for move in reversed(batch['moves']):
 			if _restore_move(move, dryrun, config['MOVED']):
@@ -195,14 +206,14 @@ def undo_batches(n: int, dryrun: bool) -> None:
 		try:
 			history.save_history(data)
 		except history.HistoryException as e:
-			log.error(str(e))
+			log.error(str(e), prefix='Error')
 			return
 
-	summary = f'Undone: {restored} restored, {failed} failed'
+	summary = f'{restored} restored, {failed} failed'
 	if failed:
-		log.warn(summary)
+		log.warn(summary, prefix='Undone')
 	else:
-		log.info(summary)
+		log.info(summary, prefix='Undone')
 
 
 def main(dryrun: bool) -> None:
@@ -211,20 +222,20 @@ def main(dryrun: bool) -> None:
 	"""
 	log.info('Running renamer...')
 	if dryrun:
-		log.warn('[DRY-RUN] No files will be moved')
+		log.warn('No files will be moved', prefix='Dry-run')
 
 	config = io.read_config('config.json')
 	env_key = os.environ.get('MOVIEDB_KEY')
 	if env_key:
 		config['MOVIEDB_KEY'] = env_key
-		log.info('Using MOVIEDB_KEY from environment')
+		log.info('MOVIEDB_KEY from environment', prefix='Using')
 
 	found = io.find_files(config['HOME'])
 	if len(found) == 0:
-		log.warn('No files found')
+		log.warn('No files found', prefix='Skip')
 		return
 
-	log.info(f'Found {len(found)} file(s)')
+	log.info(f'{len(found)} file(s)', prefix='Found')
 
 	matches = {}
 	moves = []
@@ -236,7 +247,7 @@ def main(dryrun: bool) -> None:
 		try:
 			result = _process_file(f, config, matches, dryrun)
 		except (moviedb.MovieDBException, io.FileIOException, OSError) as e:
-			log.error(f"Failed processing {f['filename']}: {e}")
+			log.error(f"{f['filename']}: {e}", prefix='Failed')
 			failed += 1
 			continue
 
@@ -250,13 +261,13 @@ def main(dryrun: bool) -> None:
 		try:
 			history.append_batch(moves)
 		except history.HistoryException as e:
-			log.error(f'Failed to record rename history: {e}')
+			log.error(str(e), prefix='History')
 
-	summary = f'Done: {moved} moved, {skipped} skipped, {failed} failed'
+	summary = f'{moved} moved, {skipped} skipped, {failed} failed'
 	if failed:
-		log.warn(summary)
+		log.warn(summary, prefix='Done')
 	else:
-		log.info(summary)
+		log.info(summary, prefix='Done')
 
 
 if __name__ == '__main__':

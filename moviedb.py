@@ -106,7 +106,7 @@ def get_series(query: str, apikey: str) -> list:
 	found = []
 	for r in response.get('results', []):
 		if 'first_air_date' not in r:
-			log.warn('Ignoring missing airdate {}.'.format(r['name']))
+			log.warn(r['name'], prefix='Ignoring')
 			continue
 
 		found.append({

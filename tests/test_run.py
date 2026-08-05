@@ -4,7 +4,7 @@ import file_io as io
 import history
 import moviedb
 import run
-from helpers import OFFICE, OFFICE_UK
+from helpers import OFFICE, OFFICE_UK, assert_logged
 
 
 class TestSeriesLabel:
@@ -22,7 +22,7 @@ class TestMain:
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.main(dryrun=False)
 
-		assert 'No files found' in capsys.readouterr().out
+		assert_logged(capsys.readouterr().out, ('Skip', 'No files found'))
 
 	@patch('run.moviedb.get_series')
 	def test_no_series_match_leaves_file(
@@ -37,7 +37,7 @@ class TestMain:
 			run.main(dryrun=False)
 
 		assert (home / filename).exists()
-		assert 'No series matches for The Office' in capsys.readouterr().out
+		assert_logged(capsys.readouterr().out, ('No match', 'The Office'))
 		mock_get_series.assert_called_once_with('The Office', 'test-api-key')
 
 	@patch('run.moviedb.get_episode')
@@ -55,12 +55,13 @@ class TestMain:
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.main(dryrun=True)
 
-		output = capsys.readouterr().out
 		assert (home / filename).exists()
-		assert '[DRY-RUN] No files will be moved' in output
-		assert '[DRY-RUN] Skipping rename from The Office S01E01.mp4' in output
-		assert 'S01E01 - Pilot.mp4' in output
-		assert 'Done: 0 moved, 1 skipped, 0 failed' in output
+		assert_logged(
+			capsys.readouterr().out,
+			('Dry-run', 'No files will be moved'),
+			('Dry-run', 'The Office S01E01.mp4 -> S01E01 - Pilot.mp4'),
+			('Done', '0 moved, 1 skipped, 0 failed'),
+		)
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
@@ -82,7 +83,10 @@ class TestMain:
 		mock_get_episode.assert_called_once_with(2316, 1, 1, 'env-api-key')
 		expected = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
 		assert expected.exists()
-		assert 'Using MOVIEDB_KEY from environment' in capsys.readouterr().out
+		assert_logged(
+			capsys.readouterr().out,
+			('Using', 'MOVIEDB_KEY from environment'),
+		)
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
@@ -102,10 +106,12 @@ class TestMain:
 		expected = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
 		assert expected.exists()
 		assert not (home / filename).exists()
-		output = capsys.readouterr().out
-		assert 'Matched The Office (2005) for The Office' in output
-		assert f'Successfully moved to {expected}' in output
-		assert 'Done: 1 moved, 0 skipped, 0 failed' in output
+		assert_logged(
+			capsys.readouterr().out,
+			('Matched', 'The Office (2005) for The Office'),
+			('Moved', str(expected)),
+			('Done', '1 moved, 0 skipped, 0 failed'),
+		)
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
@@ -118,7 +124,8 @@ class TestMain:
 		(home / filename).write_text('video')
 		dest_dir = moved / 'The Office (2005)' / 'Season 1'
 		dest_dir.mkdir(parents=True)
-		(dest_dir / 'S01E01 - Pilot.mp4').write_text('existing')
+		dest_file = dest_dir / 'S01E01 - Pilot.mp4'
+		dest_file.write_text('existing')
 		mock_get_series.return_value = [OFFICE]
 		mock_get_episode.return_value = 'Pilot'
 
@@ -126,10 +133,11 @@ class TestMain:
 			run.main(dryrun=False)
 
 		assert (home / filename).exists()
-		output = capsys.readouterr().out
-		assert 'Failed processing The Office S01E01.mp4' in output
-		assert 'already Exists' in output
-		assert 'Done: 0 moved, 0 skipped, 1 failed' in output
+		assert_logged(
+			capsys.readouterr().out,
+			('Failed', f'The Office S01E01.mp4: {dest_file} already Exists.'),
+			('Done', '0 moved, 0 skipped, 1 failed'),
+		)
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
@@ -147,8 +155,10 @@ class TestMain:
 			run.main(dryrun=False)
 
 		mock_get_series.assert_called_once()
-		output = capsys.readouterr().out
-		assert 'Using previous match The Office (2005) for The Office' in output
+		assert_logged(
+			capsys.readouterr().out,
+			('Cached', 'The Office (2005) for The Office'),
+		)
 		season_dir = moved / 'The Office (2005)' / 'Season 1'
 		assert (season_dir / 'S01E01 - Pilot.mp4').exists()
 		assert (season_dir / 'S01E02 - Diversity Day.mp4').exists()
@@ -207,7 +217,7 @@ class TestMain:
 
 		assert (home / filename).exists()
 		assert not list(moved.iterdir())
-		assert 'Ignoring The Office' in capsys.readouterr().out
+		assert_logged(capsys.readouterr().out, ('Ignoring', 'The Office'))
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
@@ -225,7 +235,10 @@ class TestMain:
 			run.main(dryrun=False)
 
 		assert (home / filename).exists()
-		assert 'No episode found for The Office S1E1' in capsys.readouterr().out
+		assert_logged(
+			capsys.readouterr().out,
+			('No episode', 'The Office S1E1'),
+		)
 
 	@patch('run.moviedb.get_series')
 	def test_moviedb_error_skips_file(
@@ -240,9 +253,11 @@ class TestMain:
 			run.main(dryrun=False)
 
 		assert (home / filename).exists()
-		output = capsys.readouterr().out
-		assert 'Failed processing The Office S01E01.mp4: API error' in output
-		assert 'Done: 0 moved, 0 skipped, 1 failed' in output
+		assert_logged(
+			capsys.readouterr().out,
+			('Failed', 'The Office S01E01.mp4: API error'),
+			('Done', '0 moved, 0 skipped, 1 failed'),
+		)
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
@@ -268,9 +283,11 @@ class TestMain:
 		expected = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
 		assert expected.exists()
 		assert not (home / second).exists()
-		output = capsys.readouterr().out
-		assert 'Failed processing Bad Show S01E01.mp4: API error' in output
-		assert 'Done: 1 moved, 0 skipped, 1 failed' in output
+		assert_logged(
+			capsys.readouterr().out,
+			('Failed', 'Bad Show S01E01.mp4: API error'),
+			('Done', '1 moved, 0 skipped, 1 failed'),
+		)
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
@@ -298,9 +315,11 @@ class TestMain:
 
 		assert (home / first).exists()
 		assert (home / second).exists()
-		output = capsys.readouterr().out
-		assert 'Failed processing The Office S01E01.mp4: disk full' in output
-		assert 'Done: 1 moved, 0 skipped, 1 failed' in output
+		assert_logged(
+			capsys.readouterr().out,
+			('Failed', 'The Office S01E01.mp4: disk full'),
+			('Done', '1 moved, 0 skipped, 1 failed'),
+		)
 
 
 class TestHistoryRecording:
@@ -387,7 +406,10 @@ class TestUndo:
 		assert not dest.exists()
 		assert not (moved / 'The Office (2005)').exists()
 		assert history.load_history()['batches'] == []
-		assert 'Undone: 1 restored, 0 failed' in capsys.readouterr().out
+		assert_logged(
+			capsys.readouterr().out,
+			('Undone', '1 restored, 0 failed'),
+		)
 
 	def test_undo_dryrun_leaves_files_and_history(
 		self, media_dirs, config_for_dirs, capsys
@@ -401,9 +423,11 @@ class TestUndo:
 		assert not src.exists()
 		assert dest.exists()
 		assert len(history.load_history()['batches']) == 1
-		output = capsys.readouterr().out
-		assert '[DRY-RUN] Would restore' in output
-		assert 'Undone: 1 restored, 0 failed' in output
+		assert_logged(
+			capsys.readouterr().out,
+			('Dry-run', f'{dest} -> {src}'),
+			('Undone', '1 restored, 0 failed'),
+		)
 
 	def test_undo_two_batches(self, media_dirs, config_for_dirs):
 		home, moved = media_dirs
@@ -454,7 +478,10 @@ class TestUndo:
 		assert data['batches'][0]['moves'] == [
 			{'src': str(src_missing), 'dest': str(dest_missing)},
 		]
-		assert 'Undone: 1 restored, 1 failed' in capsys.readouterr().out
+		assert_logged(
+			capsys.readouterr().out,
+			('Undone', '1 restored, 1 failed'),
+		)
 
 	def test_undo_collision_retains_failed_move(
 		self, media_dirs, config_for_dirs, capsys
@@ -471,19 +498,28 @@ class TestUndo:
 		data = history.load_history()
 		assert len(data['batches']) == 1
 		assert data['batches'][0]['moves'][0]['dest'] == str(dest)
-		assert 'original path occupied' in capsys.readouterr().out
+		assert_logged(
+			capsys.readouterr().out,
+			('Cannot', f'original path occupied: {src}'),
+		)
 
 	def test_undo_with_no_history(self, config_for_dirs, capsys):
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.undo_batches(1, dryrun=False)
 
-		assert 'No rename history to undo' in capsys.readouterr().out
+		assert_logged(
+			capsys.readouterr().out,
+			('Skip', 'No rename history to undo'),
+		)
 
 	def test_undo_rejects_non_positive_count(self, config_for_dirs, capsys):
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.undo_batches(0, dryrun=False)
 
-		assert 'Undo count must be at least 1' in capsys.readouterr().out
+		assert_logged(
+			capsys.readouterr().out,
+			('Error', 'Undo count must be at least 1'),
+		)
 
 	def test_undo_load_history_error(self, config_for_dirs, capsys):
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -493,7 +529,7 @@ class TestUndo:
 			):
 				run.undo_batches(1, dryrun=False)
 
-		assert 'corrupt' in capsys.readouterr().out
+		assert_logged(capsys.readouterr().out, ('Error', 'corrupt'))
 
 	def test_undo_warns_when_requesting_more_batches_than_available(
 		self, media_dirs, config_for_dirs, capsys
@@ -504,9 +540,11 @@ class TestUndo:
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.undo_batches(5, dryrun=False)
 
-		output = capsys.readouterr().out
-		assert 'Requested 5 batch(es) but only 1 available' in output
-		assert 'Undone: 1 restored, 0 failed' in output
+		assert_logged(
+			capsys.readouterr().out,
+			('Warn', 'Requested 5 batch(es) but only 1 available'),
+			('Undone', '1 restored, 0 failed'),
+		)
 
 	def test_undo_save_history_error(
 		self, media_dirs, config_for_dirs, capsys
@@ -521,7 +559,7 @@ class TestUndo:
 			):
 				run.undo_batches(1, dryrun=False)
 
-		assert 'write failed' in capsys.readouterr().out
+		assert_logged(capsys.readouterr().out, ('Error', 'write failed'))
 
 	def test_undo_move_file_failure_is_reported(
 		self, media_dirs, config_for_dirs, capsys
@@ -538,10 +576,11 @@ class TestUndo:
 
 		assert dest.exists()
 		assert not src.exists()
-		output = capsys.readouterr().out
-		assert 'Failed to restore' in output
-		assert 'cross-device failed' in output
-		assert 'Undone: 0 restored, 1 failed' in output
+		assert_logged(
+			capsys.readouterr().out,
+			('Failed', f'{dest} -> {src}: cross-device failed'),
+			('Undone', '0 restored, 1 failed'),
+		)
 		assert len(history.load_history()['batches']) == 1
 
 
@@ -564,6 +603,8 @@ class TestHistoryRecordingErrors:
 			):
 				run.main(dryrun=False)
 
-		output = capsys.readouterr().out
-		assert 'Failed to record rename history: cannot write' in output
-		assert 'Done: 1 moved, 0 skipped, 0 failed' in output
+		assert_logged(
+			capsys.readouterr().out,
+			('History', 'cannot write'),
+			('Done', '1 moved, 0 skipped, 0 failed'),
+		)
