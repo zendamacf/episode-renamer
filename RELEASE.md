@@ -2,8 +2,6 @@
 
 Episode Renamer uses [Towncrier](https://towncrier.readthedocs.io/) for changelog management and a tag-based GitHub Actions workflow for publishing releases.
 
-**Current version:** 0.2.0
-
 ## How releases work
 
 ### During development
