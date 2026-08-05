@@ -23,22 +23,22 @@ def _print(msg: str, color: str | None = None) -> None:
 
 
 def info(msg: str) -> None:
-	"""Progress / status messages."""
+	"""Progress / status messages. Rendered in cyan."""
 	_print(msg, _CYAN)
 
 
 def success(msg: str) -> None:
-	"""Completed actions."""
+	"""Completed actions. Rendered in green."""
 	_print(msg, _GREEN)
 
 
 def warn(msg: str) -> None:
-	"""Skips, dry-run, or missing data."""
+	"""Skips, dry-run, or missing data. Rendered in yellow."""
 	_print(msg, _YELLOW)
 
 
 def error(msg: str) -> None:
-	"""Parse failures / hard misses."""
+	"""Parse failures / hard misses. Rendered in red."""
 	_print(msg, _RED)
 
 

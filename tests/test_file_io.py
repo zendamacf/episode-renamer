@@ -162,7 +162,7 @@ class TestRenameAndMove:
 		moved.mkdir()
 		return home, moved
 
-	def test_moves_file_with_year(self, dirs):
+	def test_moves_file_with_year(self, dirs, capsys):
 		home, moved = dirs
 		orig = 'The Office S01E01.mp4'
 		new_name = 'S01E01 - Pilot.mp4'
@@ -176,6 +176,10 @@ class TestRenameAndMove:
 		expected = moved / 'The Office (2005)' / 'Season 1' / new_name
 		assert expected.exists()
 		assert not (home / orig).exists()
+		output = capsys.readouterr().out
+		assert f'Created show folder: {moved / "The Office (2005)"}' in output
+		assert f'Created season folder: {expected.parent}' in output
+		assert f'Successfully moved to {expected}' in output
 
 	def test_moves_file_without_year(self, dirs):
 		home, moved = dirs
@@ -191,7 +195,7 @@ class TestRenameAndMove:
 		expected = moved / 'Show' / 'Season 1' / new_name
 		assert expected.exists()
 
-	def test_moves_file_when_folders_already_exist(self, dirs):
+	def test_moves_file_when_folders_already_exist(self, dirs, capsys):
 		home, moved = dirs
 		orig = 'Show S01E01.mp4'
 		new_name = 'S01E01 - Pilot.mp4'
@@ -206,6 +210,10 @@ class TestRenameAndMove:
 
 		assert (season_dir / new_name).exists()
 		assert not (home / orig).exists()
+		output = capsys.readouterr().out
+		assert 'Created show folder' not in output
+		assert 'Created season folder' not in output
+		assert f'Successfully moved to {season_dir / new_name}' in output
 
 	def test_duplicate_destination_raises(self, dirs):
 		home, moved = dirs

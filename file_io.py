@@ -151,12 +151,14 @@ def rename_and_move(
 		show_folder = os.path.join(new_directory, '{}'.format(show))
 	if not os.path.exists(show_folder):
 		os.makedirs(show_folder)
+		log.info(f'Created show folder: {show_folder}')
 	season_folder = os.path.join(show_folder, 'Season {}'.format(season,))
 	if not os.path.exists(season_folder):
 		os.makedirs(season_folder)
+		log.info(f'Created season folder: {season_folder}')
 	curr_file = os.path.join(orig_directory, orig_filename)
 	new_file = os.path.join(season_folder, new_filename)
 	if os.path.exists(new_file):
 		raise FileIOException('{} already Exists.'.format(new_file,))
 	shutil.move(curr_file, new_file)
-	log.success('Successfully moved.')
+	log.success(f'Successfully moved to {new_file}')
