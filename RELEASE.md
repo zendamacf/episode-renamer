@@ -85,7 +85,12 @@ Edit `config.json` with your TMDB API key and directory paths.
 ```bash
 python run.py           # rename and move files
 python run.py --dryrun  # preview changes without modifying files
+python run.py --undo    # undo the last rename batch
+python run.py --undo 2  # undo the last two rename batches
+python run.py --undo --dryrun  # preview what undo would restore
 ```
+
+Successful renames are recorded in `rename_history.json` (next to `config.json`). Undo moves files back to `HOME` and removes empty show/season folders.
 
 ### Supported input filenames
 

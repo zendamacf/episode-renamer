@@ -142,6 +142,49 @@ def get_filename(
 	return winsafe_filename(new_filename)
 
 
+def move_file(from_path: str, to_path: str) -> None:
+	"""
+	Move a file with O_EXCL destination reservation and cross-device fallback.
+	"""
+	try:
+		fd = os.open(to_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+		os.close(fd)
+	except FileExistsError:
+		raise FileIOException('{} already Exists.'.format(to_path))
+
+	try:
+		os.replace(from_path, to_path)
+	except OSError:
+		# Cross-device: replace reserved dest with content, then remove source.
+		try:
+			shutil.copy2(from_path, to_path)
+			os.unlink(from_path)
+		except OSError as exc:
+			try:
+				os.unlink(to_path)
+			except OSError:
+				pass
+			raise FileIOException(
+				'Failed to move {} -> {}: {}'.format(from_path, to_path, exc)
+			) from exc
+
+
+def remove_empty_parents(path: str, stop_at: str | None = None) -> None:
+	"""
+	Remove empty parent directories of path up to (but not including) stop_at.
+	"""
+	parent = os.path.dirname(path)
+	stop = os.path.abspath(stop_at) if stop_at else None
+	while parent and parent != os.path.dirname(parent):
+		if stop and os.path.abspath(parent) == stop:
+			break
+		try:
+			os.rmdir(parent)
+		except OSError:
+			break
+		parent = os.path.dirname(parent)
+
+
 def rename_and_move(
 	orig_directory: str,
 	orig_filename: str,
@@ -150,9 +193,11 @@ def rename_and_move(
 	show: str,
 	year: str,
 	season: int
-):
+) -> str:
 	"""
-	Rename and sort the file into folders
+	Rename and sort the file into folders.
+
+	Returns the absolute destination path.
 	"""
 	safe_show = winsafe_filename(str(show))
 	if not safe_show:
@@ -173,26 +218,7 @@ def rename_and_move(
 
 	curr_file = os.path.join(orig_directory, orig_filename)
 	new_file = os.path.join(season_folder, new_filename)
-	try:
-		fd = os.open(new_file, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-		os.close(fd)
-	except FileExistsError:
-		raise FileIOException('{} already Exists.'.format(new_file))
-
-	try:
-		os.replace(curr_file, new_file)
-	except OSError:
-		# Cross-device: replace reserved dest with content, then remove source.
-		try:
-			shutil.copy2(curr_file, new_file)
-			os.unlink(curr_file)
-		except OSError as exc:
-			try:
-				os.unlink(new_file)
-			except OSError:
-				pass
-			raise FileIOException(
-				'Failed to move {} -> {}: {}'.format(curr_file, new_file, exc)
-			) from exc
+	move_file(curr_file, new_file)
 
 	log.success(f'Successfully moved to {new_file}')
+	return new_file

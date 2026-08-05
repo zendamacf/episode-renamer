@@ -372,3 +372,71 @@ class TestRenameAndMove:
 			)
 
 		assert (home / orig).exists()
+
+
+class TestRemoveEmptyParents:
+	def test_removes_empty_parents_but_stops_at_boundary(self, tmp_path):
+		moved = tmp_path / 'moved'
+		show = moved / 'The Office (2005)'
+		season = show / 'Season 1'
+		file_path = season / 'S01E01 - Pilot.mp4'
+		season.mkdir(parents=True)
+
+		io.remove_empty_parents(str(file_path), stop_at=str(moved))
+
+		assert not season.exists()
+		assert not show.exists()
+		assert moved.exists()
+
+	def test_stop_at_survives_even_when_empty(self, tmp_path):
+		moved = tmp_path / 'moved'
+		moved.mkdir()
+		file_path = moved / 'orphan.mp4'
+
+		io.remove_empty_parents(str(file_path), stop_at=str(moved))
+
+		assert moved.exists()
+		assert tmp_path.exists()
+
+	def test_stop_at_with_relative_path(self, tmp_path, monkeypatch):
+		monkeypatch.chdir(tmp_path)
+		moved = tmp_path / 'moved'
+		show = moved / 'Show'
+		season = show / 'Season 1'
+		file_path = season / 'S01E01 - Pilot.mp4'
+		season.mkdir(parents=True)
+
+		io.remove_empty_parents(str(file_path), stop_at='moved')
+
+		assert not season.exists()
+		assert not show.exists()
+		assert moved.exists()
+
+	def test_does_not_remove_non_empty_parent(self, tmp_path):
+		moved = tmp_path / 'moved'
+		show = moved / 'Show'
+		season = show / 'Season 1'
+		file_path = season / 'S01E01 - Pilot.mp4'
+		season.mkdir(parents=True)
+		(season / 'other.mp4').write_text('keep')
+
+		io.remove_empty_parents(str(file_path), stop_at=str(moved))
+
+		assert season.exists()
+		assert show.exists()
+		assert moved.exists()
+		assert (season / 'other.mp4').exists()
+
+	def test_without_stop_at_removes_all_empty_parents(self, tmp_path):
+		(tmp_path / 'keep').write_text('anchor')
+		root = tmp_path / 'root'
+		nested = root / 'a' / 'b' / 'c'
+		file_path = nested / 'file.mp4'
+		nested.mkdir(parents=True)
+
+		io.remove_empty_parents(str(file_path))
+
+		assert not (root / 'a').exists()
+		assert not root.exists()
+		assert tmp_path.exists()
+		assert (tmp_path / 'keep').exists()

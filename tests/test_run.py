@@ -1,5 +1,7 @@
 from unittest.mock import patch
 
+import file_io as io
+import history
 import moviedb
 import run
 from helpers import OFFICE, OFFICE_UK
@@ -287,7 +289,10 @@ class TestMain:
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			with patch(
 				'run.io.rename_and_move',
-				side_effect=[OSError('disk full'), None],
+				side_effect=[
+					OSError('disk full'),
+					str(moved / 'fake' / 'S01E02 - Diversity Day.mp4'),
+				],
 			):
 				run.main(dryrun=False)
 
@@ -296,3 +301,269 @@ class TestMain:
 		output = capsys.readouterr().out
 		assert 'Failed processing The Office S01E01.mp4: disk full' in output
 		assert 'Done: 1 moved, 0 skipped, 1 failed' in output
+
+
+class TestHistoryRecording:
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_rename_writes_history_batch(
+		self, mock_get_series, mock_get_episode,
+		media_dirs, config_for_dirs, isolate_rename_history
+	):
+		home, moved = media_dirs
+		filename = 'The Office S01E01.mp4'
+		(home / filename).write_text('video')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		data = history.load_history()
+		assert len(data['batches']) == 1
+		moves = data['batches'][0]['moves']
+		assert len(moves) == 1
+		assert moves[0]['src'] == str(home / filename)
+		assert moves[0]['dest'] == str(
+			moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		)
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_dryrun_does_not_write_history(
+		self, mock_get_series, mock_get_episode,
+		media_dirs, config_for_dirs, isolate_rename_history
+	):
+		home, _ = media_dirs
+		(home / 'The Office S01E01.mp4').write_text('video')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=True)
+
+		assert not isolate_rename_history.exists()
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_multi_file_run_is_one_batch(
+		self, mock_get_series, mock_get_episode,
+		media_dirs, config_for_dirs
+	):
+		home, _ = media_dirs
+		(home / 'The Office S01E01.mp4').write_text('video')
+		(home / 'The Office S01E02.mp4').write_text('video')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.side_effect = ['Pilot', 'Diversity Day']
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		data = history.load_history()
+		assert len(data['batches']) == 1
+		assert len(data['batches'][0]['moves']) == 2
+
+
+class TestUndo:
+	def _seed_moved_file(self, home, moved, name='The Office S01E01.mp4'):
+		src = home / name
+		dest = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		dest.parent.mkdir(parents=True)
+		dest.write_text('video')
+		history.append_batch([{'src': str(src), 'dest': str(dest)}])
+		return src, dest
+
+	def test_undo_restores_file_and_cleans_folders(
+		self, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		src, dest = self._seed_moved_file(home, moved)
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.undo_batches(1, dryrun=False)
+
+		assert src.exists()
+		assert src.read_text() == 'video'
+		assert not dest.exists()
+		assert not (moved / 'The Office (2005)').exists()
+		assert history.load_history()['batches'] == []
+		assert 'Undone: 1 restored, 0 failed' in capsys.readouterr().out
+
+	def test_undo_dryrun_leaves_files_and_history(
+		self, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		src, dest = self._seed_moved_file(home, moved)
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.undo_batches(1, dryrun=True)
+
+		assert not src.exists()
+		assert dest.exists()
+		assert len(history.load_history()['batches']) == 1
+		output = capsys.readouterr().out
+		assert '[DRY-RUN] Would restore' in output
+		assert 'Undone: 1 restored, 0 failed' in output
+
+	def test_undo_two_batches(self, media_dirs, config_for_dirs):
+		home, moved = media_dirs
+		src1 = home / 'The Office S01E01.mp4'
+		dest1 = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		src2 = home / 'The Office S01E02.mp4'
+		dest2 = (
+			moved / 'The Office (2005)' / 'Season 1' / 'S01E02 - Diversity Day.mp4'
+		)
+		dest1.parent.mkdir(parents=True)
+		dest1.write_text('one')
+		dest2.write_text('two')
+		history.append_batch([{'src': str(src1), 'dest': str(dest1)}])
+		history.append_batch([{'src': str(src2), 'dest': str(dest2)}])
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.undo_batches(2, dryrun=False)
+
+		assert src1.exists() and src1.read_text() == 'one'
+		assert src2.exists() and src2.read_text() == 'two'
+		assert history.load_history()['batches'] == []
+
+	def test_undo_missing_dest_retains_failed_move(
+		self, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		src_ok = home / 'The Office S01E01.mp4'
+		dest_ok = (
+			moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		)
+		src_missing = home / 'The Office S01E02.mp4'
+		dest_missing = (
+			moved / 'The Office (2005)' / 'Season 1' / 'S01E02 - Diversity Day.mp4'
+		)
+		dest_ok.parent.mkdir(parents=True)
+		dest_ok.write_text('ok')
+		history.append_batch([
+			{'src': str(src_ok), 'dest': str(dest_ok)},
+			{'src': str(src_missing), 'dest': str(dest_missing)},
+		])
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.undo_batches(1, dryrun=False)
+
+		assert src_ok.exists()
+		data = history.load_history()
+		assert len(data['batches']) == 1
+		assert data['batches'][0]['moves'] == [
+			{'src': str(src_missing), 'dest': str(dest_missing)},
+		]
+		assert 'Undone: 1 restored, 1 failed' in capsys.readouterr().out
+
+	def test_undo_collision_retains_failed_move(
+		self, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		src, dest = self._seed_moved_file(home, moved)
+		src.write_text('occupying')
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.undo_batches(1, dryrun=False)
+
+		assert dest.exists()
+		assert src.read_text() == 'occupying'
+		data = history.load_history()
+		assert len(data['batches']) == 1
+		assert data['batches'][0]['moves'][0]['dest'] == str(dest)
+		assert 'original path occupied' in capsys.readouterr().out
+
+	def test_undo_with_no_history(self, config_for_dirs, capsys):
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.undo_batches(1, dryrun=False)
+
+		assert 'No rename history to undo' in capsys.readouterr().out
+
+	def test_undo_rejects_non_positive_count(self, config_for_dirs, capsys):
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.undo_batches(0, dryrun=False)
+
+		assert 'Undo count must be at least 1' in capsys.readouterr().out
+
+	def test_undo_load_history_error(self, config_for_dirs, capsys):
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			with patch(
+				'run.history.load_history',
+				side_effect=history.HistoryException('corrupt'),
+			):
+				run.undo_batches(1, dryrun=False)
+
+		assert 'corrupt' in capsys.readouterr().out
+
+	def test_undo_warns_when_requesting_more_batches_than_available(
+		self, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		self._seed_moved_file(home, moved)
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.undo_batches(5, dryrun=False)
+
+		output = capsys.readouterr().out
+		assert 'Requested 5 batch(es) but only 1 available' in output
+		assert 'Undone: 1 restored, 0 failed' in output
+
+	def test_undo_save_history_error(
+		self, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		self._seed_moved_file(home, moved)
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			with patch(
+				'run.history.save_history',
+				side_effect=history.HistoryException('write failed'),
+			):
+				run.undo_batches(1, dryrun=False)
+
+		assert 'write failed' in capsys.readouterr().out
+
+	def test_undo_move_file_failure_is_reported(
+		self, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		src, dest = self._seed_moved_file(home, moved)
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			with patch(
+				'run.io.move_file',
+				side_effect=io.FileIOException('cross-device failed'),
+			):
+				run.undo_batches(1, dryrun=False)
+
+		assert dest.exists()
+		assert not src.exists()
+		output = capsys.readouterr().out
+		assert 'Failed to restore' in output
+		assert 'cross-device failed' in output
+		assert 'Undone: 0 restored, 1 failed' in output
+		assert len(history.load_history()['batches']) == 1
+
+
+class TestHistoryRecordingErrors:
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_append_batch_failure_is_logged(
+		self, mock_get_series, mock_get_episode,
+		media_dirs, config_for_dirs, capsys
+	):
+		home, _ = media_dirs
+		(home / 'The Office S01E01.mp4').write_text('video')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			with patch(
+				'run.history.append_batch',
+				side_effect=history.HistoryException('cannot write'),
+			):
+				run.main(dryrun=False)
+
+		output = capsys.readouterr().out
+		assert 'Failed to record rename history: cannot write' in output
+		assert 'Done: 1 moved, 0 skipped, 0 failed' in output
