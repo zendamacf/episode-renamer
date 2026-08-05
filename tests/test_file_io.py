@@ -3,6 +3,7 @@ import json
 import pytest
 
 import file_io as io
+import log
 from helpers import PARSEABLE_FILENAMES
 
 
@@ -151,6 +152,22 @@ class TestPromptUser:
 		monkeypatch.setattr('builtins.input', lambda _: '')
 		io.prompt_user('Mystery Show', series_list_without_year)
 		assert '(1) Mystery Show\n' in capsys.readouterr().out
+
+	def test_passes_styled_prompt_to_input(self, series_list, monkeypatch):
+		seen = {}
+
+		def fake_input(prompt):
+			seen['prompt'] = prompt
+			return ''
+
+		monkeypatch.setattr('builtins.input', fake_input)
+		monkeypatch.setattr('sys.stdout.isatty', lambda: True)
+		io.prompt_user('The Office', series_list)
+		assert seen['prompt'] == (
+			f'{log.BOLD}{log.CYAN}'
+			'Select correct series for The Office ("i" to ignore): '
+			f'{log.RESET}'
+		)
 
 
 class TestRenameAndMove:

@@ -4,11 +4,12 @@ Colored terminal output helpers.
 
 import sys
 
-_RESET = '\033[0m'
-_CYAN = '\033[36m'
-_GREEN = '\033[32m'
-_YELLOW = '\033[33m'
-_RED = '\033[31m'
+RESET = '\033[0m'
+BOLD = '\033[1m'
+CYAN = '\033[36m'
+GREEN = '\033[32m'
+YELLOW = '\033[33m'
+RED = '\033[31m'
 
 
 def _use_color() -> bool:
@@ -17,31 +18,40 @@ def _use_color() -> bool:
 
 def _print(msg: str, color: str | None = None) -> None:
 	if color and _use_color():
-		print(f'{color}{msg}{_RESET}')
+		print(f'{color}{msg}{RESET}')
 	else:
 		print(msg)
 
 
 def info(msg: str) -> None:
 	"""Progress / status messages. Rendered in cyan."""
-	_print(msg, _CYAN)
+	_print(msg, CYAN)
 
 
 def success(msg: str) -> None:
 	"""Completed actions. Rendered in green."""
-	_print(msg, _GREEN)
+	_print(msg, GREEN)
 
 
 def warn(msg: str) -> None:
 	"""Skips, dry-run, or missing data. Rendered in yellow."""
-	_print(msg, _YELLOW)
+	_print(msg, YELLOW)
 
 
 def error(msg: str) -> None:
 	"""Parse failures / hard misses. Rendered in red."""
-	_print(msg, _RED)
+	_print(msg, RED)
 
 
 def plain(msg: str) -> None:
 	"""Uncolored output (e.g. prompt option lists)."""
 	_print(msg)
+
+
+def prompt(msg: str) -> str:
+	"""
+	Return msg styled for use as an input() prompt. Rendered in bold cyan.
+	"""
+	if _use_color():
+		return f'{BOLD}{CYAN}{msg}{RESET}'
+	return msg

@@ -92,7 +92,9 @@ def prompt_user(orig_name: str, series_list: list) -> dict:
 			log.plain('({}) {} ({})'.format(count + 1, value['name'], value['year']))
 		else:
 			log.plain('({}) {}'.format(count + 1, value['name']))
-	choice = input(f'Select correct series for {orig_name} ("i" to ignore): ')
+	choice = input(log.prompt(
+		f'Select correct series for {orig_name} ("i" to ignore): '
+	))
 	if choice == '':
 		return series_list[0]
 	if choice == 'i':
