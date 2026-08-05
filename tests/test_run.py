@@ -62,6 +62,28 @@ class TestMain:
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
+	def test_env_moviedb_key_overrides_config(
+		self, mock_get_series, mock_get_episode,
+		media_dirs, config_for_dirs, monkeypatch, capsys
+	):
+		home, moved = media_dirs
+		filename = 'The Office S01E01.mp4'
+		(home / filename).write_text('video')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+		monkeypatch.setenv('MOVIEDB_KEY', 'env-api-key')
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		mock_get_series.assert_called_once_with('The Office', 'env-api-key')
+		mock_get_episode.assert_called_once_with(2316, 1, 1, 'env-api-key')
+		expected = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		assert expected.exists()
+		assert 'Using MOVIEDB_KEY from environment' in capsys.readouterr().out
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
 	def test_rename_moves_file_to_show_folder(
 		self, mock_get_series, mock_get_episode,
 		media_dirs, config_for_dirs, capsys
