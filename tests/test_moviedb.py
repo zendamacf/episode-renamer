@@ -70,9 +70,7 @@ class TestRequest:
 
 	@patch('moviedb.time.sleep')
 	@patch('moviedb.requests.get')
-	def test_server_error_raises_after_retries(
-		self, mock_get, mock_sleep, mock_http_response
-	):
+	def test_server_error_raises_after_retries(self, mock_get, mock_sleep, mock_http_response):
 		mock_get.return_value = mock_http_response(500, text='Internal Server Error')
 
 		with pytest.raises(moviedb.MovieDBException, match='Unexpected response'):
@@ -97,9 +95,7 @@ class TestRequest:
 
 	@patch('moviedb.time.sleep')
 	@patch('moviedb.requests.get')
-	def test_retries_on_429_then_succeeds(
-		self, mock_get, mock_sleep, mock_http_response
-	):
+	def test_retries_on_429_then_succeeds(self, mock_get, mock_sleep, mock_http_response):
 		rate_limited = mock_http_response(429, text='Slow down')
 		rate_limited.headers = {'Retry-After': '0'}
 		mock_get.side_effect = [
@@ -128,9 +124,7 @@ class TestRequest:
 			moviedb._request('/search/tv')
 
 	@patch('moviedb.requests.get')
-	def test_client_error_raises_without_retry(
-		self, mock_get, mock_http_response
-	):
+	def test_client_error_raises_without_retry(self, mock_get, mock_http_response):
 		mock_get.return_value = mock_http_response(401, text='Unauthorized')
 
 		with pytest.raises(moviedb.MovieDBException, match='Unexpected response'):
@@ -180,11 +174,13 @@ class TestGetSeries:
 	@patch('moviedb._request')
 	def test_invalid_airdate_yields_none_year(self, mock_request):
 		mock_request.return_value = {
-			'results': [{
-				'id': 1,
-				'name': 'Odd Show',
-				'first_air_date': 'yesterday',
-			}],
+			'results': [
+				{
+					'id': 1,
+					'name': 'Odd Show',
+					'first_air_date': 'yesterday',
+				}
+			],
 		}
 
 		results = moviedb.get_series('Odd Show', 'test-key')

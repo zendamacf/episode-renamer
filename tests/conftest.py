@@ -35,6 +35,7 @@ def mock_http_response():
 		response.text = text or ''
 		response.headers = headers or {}
 		return response
+
 	return _make
 
 

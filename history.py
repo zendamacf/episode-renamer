@@ -32,13 +32,9 @@ def load_history(path: str | None = None) -> dict:
 		with open(path) as file:
 			data = json.load(file)
 	except (OSError, json.JSONDecodeError) as exc:
-		raise HistoryException(
-			'Failed to read rename history {}: {}'.format(path, exc)
-		) from exc
+		raise HistoryException('Failed to read rename history {}: {}'.format(path, exc)) from exc
 	if not isinstance(data, dict) or not isinstance(data.get('batches'), list):
-		raise HistoryException(
-			'Invalid rename history format in {}'.format(path)
-		)
+		raise HistoryException('Invalid rename history format in {}'.format(path))
 	return data
 
 
@@ -60,9 +56,7 @@ def save_history(data: dict, path: str | None = None) -> None:
 			os.unlink(tmp_path)
 		except OSError:
 			pass
-		raise HistoryException(
-			'Failed to write rename history {}: {}'.format(path, exc)
-		) from exc
+		raise HistoryException('Failed to write rename history {}: {}'.format(path, exc)) from exc
 
 
 def append_batch(moves: list, path: str | None = None) -> None:

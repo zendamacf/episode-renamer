@@ -57,9 +57,7 @@ def build_changelog(version: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-	parser = argparse.ArgumentParser(
-		description='Bump version and build the towncrier changelog.'
-	)
+	parser = argparse.ArgumentParser(description='Bump version and build the towncrier changelog.')
 	parser.add_argument(
 		'version',
 		help='New release version (e.g. 0.2.1)',
@@ -68,8 +66,7 @@ def main(argv: list[str] | None = None) -> int:
 
 	if not SEMVER.match(args.version):
 		raise SystemExit(
-			f'Invalid version {args.version!r}; expected N.N.N '
-			'(optional aN/bN/rcN suffix)'
+			f'Invalid version {args.version!r}; expected N.N.N (optional aN/bN/rcN suffix)'
 		)
 
 	old = bump_pyproject(args.version)
@@ -80,9 +77,7 @@ def main(argv: list[str] | None = None) -> int:
 	try:
 		build_changelog(args.version)
 	except FileNotFoundError:
-		raise SystemExit(
-			'towncrier not found; install with: pip install towncrier'
-		) from None
+		raise SystemExit('towncrier not found; install with: pip install towncrier') from None
 	except subprocess.CalledProcessError as exc:
 		return exc.returncode
 

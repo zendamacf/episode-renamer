@@ -29,11 +29,14 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 pytest pytest-cov
+          pip install -r requirements-dev.txt
           pip install -r requirements.txt
 
       - name: Lint
-        run: flake8
+        run: |
+          ruff format --check .
+          ruff check .
+          basedpyright .
 
       - name: Fetch Dependabot metadata
         if: >-
@@ -50,7 +53,6 @@ jobs:
           github.event.pull_request.user.login == 'dependabot[bot]'
         id: dependabot_fragment
         run: |
-          pip install towncrier
           FRAGMENT="changes/${{ github.event.pull_request.number }}.misc.md"
           if [ -f "$FRAGMENT" ]; then
             echo "committed=false" >> "$GITHUB_OUTPUT"
@@ -73,7 +75,6 @@ jobs:
       - name: Check changelog fragments
         if: github.event_name == 'pull_request'
         run: |
-          pip install towncrier
           towncrier check --compare-with origin/${{ github.base_ref }}
 
       - name: Test

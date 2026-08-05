@@ -3,6 +3,7 @@ import json
 import re
 import time
 from datetime import datetime
+from typing import Any
 
 import log
 
@@ -23,17 +24,14 @@ def _retry_delay(response, attempt: int) -> float:
 			return max(float(retry_after), 0.0)
 		except ValueError:
 			pass
-	return float(2 ** attempt)
+	return float(2**attempt)
 
 
-def _request(url: str, params: dict = None) -> dict:
+def _request(url: str, params: dict[str, str] | None = None) -> dict[str, Any]:
 	"""
 	GET from The Movie Database with timeout and bounded retries.
 	"""
-	headers = {
-		'Content-Type': 'application/json',
-		'Accept': 'application/json'
-	}
+	headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
 	endpoint = 'https://api.themoviedb.org/3{}'.format(url)
 	last_error = None
 
@@ -55,9 +53,7 @@ def _request(url: str, params: dict = None) -> dict:
 			try:
 				return json.loads(response.text)
 			except json.JSONDecodeError as exc:
-				raise MovieDBException(
-					'Invalid JSON from TMDB: {}'.format(exc)
-				) from exc
+				raise MovieDBException('Invalid JSON from TMDB: {}'.format(exc)) from exc
 
 		if response.status_code == 404:
 			return {}
@@ -67,9 +63,7 @@ def _request(url: str, params: dict = None) -> dict:
 			continue
 
 		raise MovieDBException(
-			'Unexpected response ({}): {}'.format(
-				response.status_code, response.text
-			)
+			'Unexpected response ({}): {}'.format(response.status_code, response.text)
 		)
 
 	raise MovieDBException(
@@ -81,17 +75,17 @@ def _strip_year(nam: str) -> str:
 	"""
 	Removes year from show title
 	"""
-	return re.sub(r"\([0-9]{4}\)", '', nam).strip()
+	return re.sub(r'\([0-9]{4}\)', '', nam).strip()
 
 
-def _extract_year(dat: str) -> str:
+def _extract_year(dat: str | None) -> int | None:
 	"""
 	Extracts year from an ISO date string
 	"""
 	if not dat:
 		return None
 	try:
-		return datetime.strptime(dat, "%Y-%m-%d").year
+		return datetime.strptime(dat, '%Y-%m-%d').year
 	except ValueError:
 		return None
 
@@ -109,11 +103,13 @@ def get_series(query: str, apikey: str) -> list:
 			log.warn(r['name'], prefix='Ignoring')
 			continue
 
-		found.append({
-			'id': r['id'],
-			'name': _strip_year(r['name']),
-			'year': _extract_year(r['first_air_date'])
-		})
+		found.append(
+			{
+				'id': r['id'],
+				'name': _strip_year(r['name']),
+				'year': _extract_year(r['first_air_date']),
+			}
+		)
 	return found
 
 
@@ -122,8 +118,7 @@ def get_episode(seriesid: int, season: int, episode: int, apikey: str) -> str | 
 	Gets episode information
 	"""
 	response = _request(
-		'/tv/{}/season/{}/episode/{}'.format(seriesid, season, episode),
-		params={'api_key': apikey}
+		'/tv/{}/season/{}/episode/{}'.format(seriesid, season, episode), params={'api_key': apikey}
 	)
 	if response:
 		return response.get('name')

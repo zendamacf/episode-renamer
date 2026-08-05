@@ -33,3 +33,31 @@ showcontent = true
 directory = "misc"
 name = "Misc"
 showcontent = false
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+exclude = ["*/.venv/*"]
+
+[tool.ruff.lint]
+# This repo uses tabs for indentation, so we intentionally ignore
+# tab-related indentation diagnostics.
+ignore = ["W191", "E117"]
+# Keep the initial migration close to the existing flake8 behavior
+# (pycodestyle + pyflakes core rules).
+select = ["E", "F", "W"]
+
+[tool.ruff.format]
+# Preserve the repo's tab-indented style.
+indent-style = "tab"
+quote-style = "single"
+
+[tool.basedpyright]
+pythonVersion = "3.14"
+typeCheckingMode = "standard"
+include = ["."]
+exclude = ["**/__pycache__", ".venv", ".git"]
+# `requests` is a runtime dependency; we don't want missing-stub noise here.
+reportMissingTypeStubs = false
+# Avoid failing the build for non-error diagnostics during initial adoption.
+failOnWarnings = false

@@ -29,46 +29,90 @@ class TestReadConfig:
 
 	def test_empty_key_raises(self, tmp_path):
 		path = tmp_path / 'config.json'
-		path.write_text(json.dumps({
-			'MOVIEDB_KEY': '',
-			'HOME': '/a',
-			'MOVED': '/b',
-		}))
+		path.write_text(
+			json.dumps(
+				{
+					'MOVIEDB_KEY': '',
+					'HOME': '/a',
+					'MOVED': '/b',
+				}
+			)
+		)
 		with pytest.raises(io.FileIOException, match='MOVIEDB_KEY'):
 			io.read_config(str(path))
 
 
 class TestIsVideoFile:
-	@pytest.mark.parametrize('filename', [
-		'show.mp4', 'show.mkv', 'show.avi', 'show.flv', 'show.m4v',
-		'show.MP4', 'show.MkV',
-	])
+	@pytest.mark.parametrize(
+		'filename',
+		[
+			'show.mp4',
+			'show.mkv',
+			'show.avi',
+			'show.flv',
+			'show.m4v',
+			'show.MP4',
+			'show.MkV',
+		],
+	)
 	def test_video_extensions(self, filename):
 		assert io.is_video_file(filename) is True
 
-	@pytest.mark.parametrize('filename', [
-		'show.txt', 'show.nfo', 'show.srt', 'show',
-	])
+	@pytest.mark.parametrize(
+		'filename',
+		[
+			'show.txt',
+			'show.nfo',
+			'show.srt',
+			'show',
+		],
+	)
 	def test_non_video_extensions(self, filename):
 		assert io.is_video_file(filename) is False
 
 
 class TestParseFilename:
-	@pytest.mark.parametrize('key, expected', [
-		('s01e01', {
-			'name': 'The Office', 'season': 1, 'episode': 1, 'extension': 'mp4',
-		}),
-		('1x01', {
-			'name': 'The Office', 'season': 1, 'episode': 1, 'extension': 'mkv',
-		}),
-		('compact', {
-			'name': 'The Office', 'season': 1, 'episode': 2, 'extension': 'avi',
-		}),
-		('with_year', {
-			'name': 'The Office 2005', 'season': 2, 'episode': 3,
-			'extension': 'm4v',
-		}),
-	])
+	@pytest.mark.parametrize(
+		'key, expected',
+		[
+			(
+				's01e01',
+				{
+					'name': 'The Office',
+					'season': 1,
+					'episode': 1,
+					'extension': 'mp4',
+				},
+			),
+			(
+				'1x01',
+				{
+					'name': 'The Office',
+					'season': 1,
+					'episode': 1,
+					'extension': 'mkv',
+				},
+			),
+			(
+				'compact',
+				{
+					'name': 'The Office',
+					'season': 1,
+					'episode': 2,
+					'extension': 'avi',
+				},
+			),
+			(
+				'with_year',
+				{
+					'name': 'The Office 2005',
+					'season': 2,
+					'episode': 3,
+					'extension': 'm4v',
+				},
+			),
+		],
+	)
 	def test_parse_formats(self, key, expected):
 		filename = PARSEABLE_FILENAMES[key]
 		result = io.parse_filename(filename)
@@ -163,9 +207,7 @@ class TestPromptUser:
 		with pytest.raises(io.FileIOException, match='Invalid input'):
 			io.prompt_user('The Office', series_list)
 
-	def test_prints_name_without_year(
-		self, series_list_without_year, monkeypatch, capsys
-	):
+	def test_prints_name_without_year(self, series_list_without_year, monkeypatch, capsys):
 		monkeypatch.setattr('builtins.input', lambda _: '')
 		io.prompt_user('Mystery Show', series_list_without_year)
 		assert '(1) Mystery Show\n' in capsys.readouterr().out
@@ -181,9 +223,7 @@ class TestPromptUser:
 		monkeypatch.setattr('sys.stdout.isatty', lambda: True)
 		io.prompt_user('The Office', series_list)
 		assert seen['prompt'] == (
-			f'{log.BOLD}{log.CYAN}'
-			'Select correct series for The Office ("i" to ignore): '
-			f'{log.RESET}'
+			f'{log.BOLD}{log.CYAN}Select correct series for The Office ("i" to ignore): {log.RESET}'
 		)
 
 
@@ -202,10 +242,7 @@ class TestRenameAndMove:
 		new_name = 'S01E01 - Pilot.mp4'
 		(home / orig).write_text('video')
 
-		io.rename_and_move(
-			str(home), orig, str(moved), new_name,
-			'The Office', 2005, 1
-		)
+		io.rename_and_move(str(home), orig, str(moved), new_name, 'The Office', 2005, 1)
 
 		expected = moved / 'The Office (2005)' / 'Season 1' / new_name
 		assert expected.exists()
@@ -218,10 +255,7 @@ class TestRenameAndMove:
 		new_name = 'S01E01 - Pilot.mp4'
 		(home / orig).write_text('video')
 
-		io.rename_and_move(
-			str(home), orig, str(moved), new_name,
-			'Show', None, 1
-		)
+		io.rename_and_move(str(home), orig, str(moved), new_name, 'Show', None, 1)
 
 		expected = moved / 'Show' / 'Season 1' / new_name
 		assert expected.exists()
@@ -234,10 +268,7 @@ class TestRenameAndMove:
 		season_dir = moved / 'Show (2005)' / 'Season 1'
 		season_dir.mkdir(parents=True)
 
-		io.rename_and_move(
-			str(home), orig, str(moved), new_name,
-			'Show', 2005, 1
-		)
+		io.rename_and_move(str(home), orig, str(moved), new_name, 'Show', 2005, 1)
 
 		assert (season_dir / new_name).exists()
 		assert not (home / orig).exists()
@@ -256,10 +287,7 @@ class TestRenameAndMove:
 		(season_dir / new_name).write_text('existing')
 
 		with pytest.raises(io.FileIOException, match='already Exists'):
-			io.rename_and_move(
-				str(home), orig, str(moved), new_name,
-				'Show', 2005, 1
-			)
+			io.rename_and_move(str(home), orig, str(moved), new_name, 'Show', 2005, 1)
 
 	def test_sanitizes_unsafe_show_name(self, dirs):
 		home, moved = dirs
@@ -267,10 +295,7 @@ class TestRenameAndMove:
 		new_name = 'S01E01 - Pilot.mp4'
 		(home / orig).write_text('video')
 
-		io.rename_and_move(
-			str(home), orig, str(moved), new_name,
-			'Evil/Name:Show', 2005, 1
-		)
+		io.rename_and_move(str(home), orig, str(moved), new_name, 'Evil/Name:Show', 2005, 1)
 
 		expected = moved / 'EvilNameShow (2005)' / 'Season 1' / new_name
 		assert expected.exists()
@@ -283,17 +308,10 @@ class TestRenameAndMove:
 		new_name = 'S01E01 - Pilot.mp4'
 		(home / orig).write_text('video')
 
-		with pytest.raises(
-			io.FileIOException, match='empty after sanitization'
-		):
-			io.rename_and_move(
-				str(home), orig, str(moved), new_name,
-				'://', 2005, 1
-			)
+		with pytest.raises(io.FileIOException, match='empty after sanitization'):
+			io.rename_and_move(str(home), orig, str(moved), new_name, '://', 2005, 1)
 
-	def test_cross_device_move_falls_back_to_copy(
-		self, dirs, monkeypatch
-	):
+	def test_cross_device_move_falls_back_to_copy(self, dirs, monkeypatch):
 		home, moved = dirs
 		orig = 'Show S01E01.mp4'
 		new_name = 'S01E01 - Pilot.mp4'
@@ -304,19 +322,14 @@ class TestRenameAndMove:
 
 		monkeypatch.setattr(io.os, 'replace', fail_replace)
 
-		io.rename_and_move(
-			str(home), orig, str(moved), new_name,
-			'Show', 2005, 1
-		)
+		io.rename_and_move(str(home), orig, str(moved), new_name, 'Show', 2005, 1)
 
 		expected = moved / 'Show (2005)' / 'Season 1' / new_name
 		assert expected.exists()
 		assert expected.read_text() == 'video'
 		assert not (home / orig).exists()
 
-	def test_cross_device_copy_failure_cleans_reserved_dest(
-		self, dirs, monkeypatch
-	):
+	def test_cross_device_copy_failure_cleans_reserved_dest(self, dirs, monkeypatch):
 		home, moved = dirs
 		orig = 'Show S01E01.mp4'
 		new_name = 'S01E01 - Pilot.mp4'
@@ -332,18 +345,13 @@ class TestRenameAndMove:
 		monkeypatch.setattr(io.shutil, 'copy2', fail_copy)
 
 		with pytest.raises(io.FileIOException, match='Failed to move'):
-			io.rename_and_move(
-				str(home), orig, str(moved), new_name,
-				'Show', 2005, 1
-			)
+			io.rename_and_move(str(home), orig, str(moved), new_name, 'Show', 2005, 1)
 
 		expected = moved / 'Show (2005)' / 'Season 1' / new_name
 		assert not expected.exists()
 		assert (home / orig).exists()
 
-	def test_cross_device_cleanup_ignores_unlink_errors(
-		self, dirs, monkeypatch
-	):
+	def test_cross_device_cleanup_ignores_unlink_errors(self, dirs, monkeypatch):
 		home, moved = dirs
 		orig = 'Show S01E01.mp4'
 		new_name = 'S01E01 - Pilot.mp4'
@@ -363,10 +371,7 @@ class TestRenameAndMove:
 		monkeypatch.setattr(io.os, 'unlink', fail_unlink)
 
 		with pytest.raises(io.FileIOException, match='Failed to move'):
-			io.rename_and_move(
-				str(home), orig, str(moved), new_name,
-				'Show', 2005, 1
-			)
+			io.rename_and_move(str(home), orig, str(moved), new_name, 'Show', 2005, 1)
 
 		assert (home / orig).exists()
 

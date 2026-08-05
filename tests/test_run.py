@@ -12,9 +12,7 @@ class TestSeriesLabel:
 		assert run._series_label(OFFICE) == 'The Office (2005)'
 
 	def test_omits_year_when_missing(self):
-		assert run._series_label({'name': 'Mystery Show', 'year': None}) == (
-			'Mystery Show'
-		)
+		assert run._series_label({'name': 'Mystery Show', 'year': None}) == ('Mystery Show')
 
 
 class TestMain:
@@ -43,8 +41,7 @@ class TestMain:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_dryrun_does_not_move_file(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs, capsys
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, _ = media_dirs
 		filename = 'The Office S01E01.mp4'
@@ -66,8 +63,7 @@ class TestMain:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_env_moviedb_key_overrides_config(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs, monkeypatch, capsys
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, monkeypatch, capsys
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
@@ -91,8 +87,7 @@ class TestMain:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_rename_moves_file_to_show_folder(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs, capsys
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
@@ -116,8 +111,7 @@ class TestMain:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_duplicate_destination_logs_and_continues(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs, capsys
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
@@ -142,8 +136,7 @@ class TestMain:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_cached_series_match_calls_get_series_once(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs, capsys
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		(home / 'The Office S01E01.mp4').write_text('video')
@@ -166,8 +159,7 @@ class TestMain:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_multi_match_prompt_selects_first(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs, monkeypatch
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, monkeypatch
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
@@ -185,8 +177,7 @@ class TestMain:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_multi_match_prompt_selects_explicit_choice(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs, monkeypatch
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, monkeypatch
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
@@ -203,8 +194,7 @@ class TestMain:
 
 	@patch('run.moviedb.get_series')
 	def test_multi_match_prompt_ignore_skips_file(
-		self, mock_get_series, media_dirs, config_for_dirs,
-		monkeypatch, capsys
+		self, mock_get_series, media_dirs, config_for_dirs, monkeypatch, capsys
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
@@ -222,8 +212,7 @@ class TestMain:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_episode_not_found_leaves_file(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs, capsys
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, _ = media_dirs
 		filename = 'The Office S01E01.mp4'
@@ -241,9 +230,7 @@ class TestMain:
 		)
 
 	@patch('run.moviedb.get_series')
-	def test_moviedb_error_skips_file(
-		self, mock_get_series, media_dirs, config_for_dirs, capsys
-	):
+	def test_moviedb_error_skips_file(self, mock_get_series, media_dirs, config_for_dirs, capsys):
 		home, _ = media_dirs
 		filename = 'The Office S01E01.mp4'
 		(home / filename).write_text('video')
@@ -262,8 +249,7 @@ class TestMain:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_moviedb_error_continues_with_remaining_files(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs, capsys
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		first = 'Bad Show S01E01.mp4'
@@ -292,8 +278,7 @@ class TestMain:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_oserror_skips_file_and_continues(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs, capsys
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		first = 'The Office S01E01.mp4'
@@ -326,8 +311,7 @@ class TestHistoryRecording:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_rename_writes_history_batch(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs, isolate_rename_history
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, isolate_rename_history
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
@@ -350,8 +334,7 @@ class TestHistoryRecording:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_dryrun_does_not_write_history(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs, isolate_rename_history
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, isolate_rename_history
 	):
 		home, _ = media_dirs
 		(home / 'The Office S01E01.mp4').write_text('video')
@@ -366,8 +349,7 @@ class TestHistoryRecording:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_multi_file_run_is_one_batch(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs
 	):
 		home, _ = media_dirs
 		(home / 'The Office S01E01.mp4').write_text('video')
@@ -392,9 +374,7 @@ class TestUndo:
 		history.append_batch([{'src': str(src), 'dest': str(dest)}])
 		return src, dest
 
-	def test_undo_restores_file_and_cleans_folders(
-		self, media_dirs, config_for_dirs, capsys
-	):
+	def test_undo_restores_file_and_cleans_folders(self, media_dirs, config_for_dirs, capsys):
 		home, moved = media_dirs
 		src, dest = self._seed_moved_file(home, moved)
 
@@ -411,9 +391,7 @@ class TestUndo:
 			('Undone', '1 restored, 0 failed'),
 		)
 
-	def test_undo_dryrun_leaves_files_and_history(
-		self, media_dirs, config_for_dirs, capsys
-	):
+	def test_undo_dryrun_leaves_files_and_history(self, media_dirs, config_for_dirs, capsys):
 		home, moved = media_dirs
 		src, dest = self._seed_moved_file(home, moved)
 
@@ -434,9 +412,7 @@ class TestUndo:
 		src1 = home / 'The Office S01E01.mp4'
 		dest1 = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
 		src2 = home / 'The Office S01E02.mp4'
-		dest2 = (
-			moved / 'The Office (2005)' / 'Season 1' / 'S01E02 - Diversity Day.mp4'
-		)
+		dest2 = moved / 'The Office (2005)' / 'Season 1' / 'S01E02 - Diversity Day.mp4'
 		dest1.parent.mkdir(parents=True)
 		dest1.write_text('one')
 		dest2.write_text('two')
@@ -450,24 +426,20 @@ class TestUndo:
 		assert src2.exists() and src2.read_text() == 'two'
 		assert history.load_history()['batches'] == []
 
-	def test_undo_missing_dest_retains_failed_move(
-		self, media_dirs, config_for_dirs, capsys
-	):
+	def test_undo_missing_dest_retains_failed_move(self, media_dirs, config_for_dirs, capsys):
 		home, moved = media_dirs
 		src_ok = home / 'The Office S01E01.mp4'
-		dest_ok = (
-			moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
-		)
+		dest_ok = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
 		src_missing = home / 'The Office S01E02.mp4'
-		dest_missing = (
-			moved / 'The Office (2005)' / 'Season 1' / 'S01E02 - Diversity Day.mp4'
-		)
+		dest_missing = moved / 'The Office (2005)' / 'Season 1' / 'S01E02 - Diversity Day.mp4'
 		dest_ok.parent.mkdir(parents=True)
 		dest_ok.write_text('ok')
-		history.append_batch([
-			{'src': str(src_ok), 'dest': str(dest_ok)},
-			{'src': str(src_missing), 'dest': str(dest_missing)},
-		])
+		history.append_batch(
+			[
+				{'src': str(src_ok), 'dest': str(dest_ok)},
+				{'src': str(src_missing), 'dest': str(dest_missing)},
+			]
+		)
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.undo_batches(1, dryrun=False)
@@ -483,9 +455,7 @@ class TestUndo:
 			('Undone', '1 restored, 1 failed'),
 		)
 
-	def test_undo_collision_retains_failed_move(
-		self, media_dirs, config_for_dirs, capsys
-	):
+	def test_undo_collision_retains_failed_move(self, media_dirs, config_for_dirs, capsys):
 		home, moved = media_dirs
 		src, dest = self._seed_moved_file(home, moved)
 		src.write_text('occupying')
@@ -546,9 +516,7 @@ class TestUndo:
 			('Undone', '1 restored, 0 failed'),
 		)
 
-	def test_undo_save_history_error(
-		self, media_dirs, config_for_dirs, capsys
-	):
+	def test_undo_save_history_error(self, media_dirs, config_for_dirs, capsys):
 		home, moved = media_dirs
 		self._seed_moved_file(home, moved)
 
@@ -561,9 +529,7 @@ class TestUndo:
 
 		assert_logged(capsys.readouterr().out, ('Error', 'write failed'))
 
-	def test_undo_move_file_failure_is_reported(
-		self, media_dirs, config_for_dirs, capsys
-	):
+	def test_undo_move_file_failure_is_reported(self, media_dirs, config_for_dirs, capsys):
 		home, moved = media_dirs
 		src, dest = self._seed_moved_file(home, moved)
 
@@ -588,8 +554,7 @@ class TestHistoryRecordingErrors:
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
 	def test_append_batch_failure_is_logged(
-		self, mock_get_series, mock_get_episode,
-		media_dirs, config_for_dirs, capsys
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, _ = media_dirs
 		(home / 'The Office S01E01.mp4').write_text('video')
