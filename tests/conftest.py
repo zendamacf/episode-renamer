@@ -50,8 +50,8 @@ def tmdb_episode_response():
 @pytest.fixture
 def series_list():
 	return [
-		{'id': 1, 'name': 'The Office', 'year': 2005},
-		{'id': 2, 'name': 'The Office', 'year': 2010},
+		{'id': 1, 'name': 'The Office', 'year': 2005, 'country': ['US']},
+		{'id': 2, 'name': 'The Office', 'year': 2001, 'country': ['GB']},
 	]
 
 

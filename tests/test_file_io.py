@@ -332,6 +332,25 @@ class TestPromptUser:
 		io.prompt_user('Mystery Show', series_list_without_year)
 		assert '(1) Mystery Show\n' in capsys.readouterr().out
 
+	def test_prints_country_when_present(self, series_list, monkeypatch, capsys):
+		monkeypatch.setattr('builtins.input', lambda _: '')
+		io.prompt_user('The Office', series_list)
+		out = capsys.readouterr().out
+		assert '(1) The Office (2005) [US]\n' in out
+		assert '(2) The Office (2001) [GB]\n' in out
+
+	def test_omits_country_when_missing(self, monkeypatch, capsys):
+		series = [{'id': 1, 'name': 'Survivor', 'year': 2000}]
+		monkeypatch.setattr('builtins.input', lambda _: '')
+		io.prompt_user('Survivor', series)
+		assert '(1) Survivor (2000)\n' in capsys.readouterr().out
+
+	def test_prints_multiple_countries(self, monkeypatch, capsys):
+		series = [{'id': 1, 'name': 'International Show', 'year': 2020, 'country': ['US', 'CA']}]
+		monkeypatch.setattr('builtins.input', lambda _: '')
+		io.prompt_user('International Show', series)
+		assert '(1) International Show (2020) [US, CA]\n' in capsys.readouterr().out
+
 	def test_passes_styled_prompt_to_input(self, series_list, monkeypatch):
 		seen = {}
 

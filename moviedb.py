@@ -100,11 +100,16 @@ def get_series(query: str, apikey: str) -> list:
 			log.warn(r['name'], prefix='Ignoring')
 			continue
 
+		country = r.get('origin_country')
+		if not country:
+			country = None
+
 		found.append(
 			{
 				'id': r['id'],
 				'name': _strip_year(r['name']),
 				'year': _extract_year(r['first_air_date']),
+				'country': country,
 			}
 		)
 	return found

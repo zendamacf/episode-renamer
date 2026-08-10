@@ -141,8 +141,18 @@ class TestGetSeries:
 		results = moviedb.get_series('The Office', 'test-key')
 
 		assert len(results) == 2
-		assert results[0] == {'id': 2316, 'name': 'The Office', 'year': 2005}
-		assert results[1] == {'id': 9999, 'name': 'The Office', 'year': 2010}
+		assert results[0] == {
+			'id': 2316,
+			'name': 'The Office',
+			'year': 2005,
+			'country': ['US'],
+		}
+		assert results[1] == {
+			'id': 9999,
+			'name': 'The Office',
+			'year': 2001,
+			'country': ['GB'],
+		}
 		mock_request.assert_called_once_with(
 			'/search/tv',
 			params={'api_key': 'test-key', 'query': 'The Office'},
@@ -185,7 +195,64 @@ class TestGetSeries:
 
 		results = moviedb.get_series('Odd Show', 'test-key')
 
-		assert results == [{'id': 1, 'name': 'Odd Show', 'year': None}]
+		assert results == [{'id': 1, 'name': 'Odd Show', 'year': None, 'country': None}]
+
+	@patch('moviedb._request')
+	def test_missing_origin_country_yields_none(self, mock_request):
+		mock_request.return_value = {
+			'results': [
+				{
+					'id': 1,
+					'name': 'Survivor',
+					'first_air_date': '2000-05-31',
+				}
+			],
+		}
+
+		results = moviedb.get_series('Survivor', 'test-key')
+
+		assert results == [{'id': 1, 'name': 'Survivor', 'year': 2000, 'country': None}]
+
+	@patch('moviedb._request')
+	def test_empty_origin_country_yields_none(self, mock_request):
+		mock_request.return_value = {
+			'results': [
+				{
+					'id': 1,
+					'name': 'Survivor',
+					'first_air_date': '2000-05-31',
+					'origin_country': [],
+				}
+			],
+		}
+
+		results = moviedb.get_series('Survivor', 'test-key')
+
+		assert results == [{'id': 1, 'name': 'Survivor', 'year': 2000, 'country': None}]
+
+	@patch('moviedb._request')
+	def test_multiple_origin_countries_are_preserved(self, mock_request):
+		mock_request.return_value = {
+			'results': [
+				{
+					'id': 1,
+					'name': 'International Show',
+					'first_air_date': '2020-01-01',
+					'origin_country': ['US', 'CA'],
+				}
+			],
+		}
+
+		results = moviedb.get_series('International Show', 'test-key')
+
+		assert results == [
+			{
+				'id': 1,
+				'name': 'International Show',
+				'year': 2020,
+				'country': ['US', 'CA'],
+			}
+		]
 
 
 class TestGetEpisode:

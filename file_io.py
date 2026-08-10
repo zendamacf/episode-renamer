@@ -143,15 +143,22 @@ def parse_filename(filename: str) -> dict[str, str | int | None]:
 	raise FileIOException('Filename not matched.')
 
 
+def _format_country(country: list[str] | None) -> str:
+	if not country:
+		return ''
+	return f' [{", ".join(country)}]'
+
+
 def prompt_user(orig_name: str, series_list: list[dict[str, Any]]) -> dict[str, Any] | None:
 	"""
 	Prompt user to select which show this episode is from
 	"""
 	for count, value in enumerate(series_list):
+		country = _format_country(value.get('country'))
 		if value['year'] is not None:
-			log.plain('({}) {} ({})'.format(count + 1, value['name'], value['year']))
+			log.plain('({}) {} ({}){}'.format(count + 1, value['name'], value['year'], country))
 		else:
-			log.plain('({}) {}'.format(count + 1, value['name']))
+			log.plain('({}) {}{}'.format(count + 1, value['name'], country))
 	choice = input(log.prompt(f'Select correct series for {orig_name} ("i" to ignore): '))
 	if choice == '':
 		return series_list[0]
