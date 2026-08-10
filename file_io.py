@@ -96,19 +96,32 @@ def find_subtitle_companions(directory: str, video_filename: str) -> list[dict[s
 	return companions
 
 
-def parse_filename(filename: str) -> dict[str, str | int]:
+def parse_filename(filename: str) -> dict[str, str | int | None]:
 	"""
-	Uses regex to pull series name, season and episode numbers
+	Uses regex to pull series name, season and episode numbers.
+
+	When present, a year between the series name and season/episode marker
+	(e.g. ``Show 2005 S01E01`` or ``Show.(2005).1x01``) is returned as ``year``.
 	"""
 	# Anime releases sometimes prefix filenames with the encoder/group name in square brackets
 	encoder_prefix = r'(?:\[[^\]]+\]\s*)?'
 	file_start = r'^' + encoder_prefix
 	file_end = r'\.(?P<ext>.*?)$'
+	# Optional year as YYYY or (YYYY)
+	optional_year = r'(?:[\.\s]+\(?(?P<year>\d{4})\)?)?'
 	regex_parsers = [
-		# S##E## style, optional year: "Show.S01E01.mkv", "Show 2020 S01E01.mp4"
-		file_start + r'(?P<name>.*?)\.*?(\d{4})?\.*?s *(?P<s>\d+) *e *(?P<e>\d+).*' + file_end,
-		# Season x episode: "Show 1x01.mkv", "Show.12x05.avi"
-		file_start + r'(?P<name>.*?)(?P<s>\d+)x(?P<e>\d+).*' + file_end,
+		# S##E## style: "Show.S01E01.mkv", "Show 2020 S01E01.mp4", "Show.(2005).S01E01.mkv"
+		file_start
+		+ r'(?P<name>.*?)'
+		+ optional_year
+		+ r'[\.\s]*s *(?P<s>\d+) *e *(?P<e>\d+).*'
+		+ file_end,
+		# Season x episode: "Show 1x01.mkv", "Show.2005.12x05.avi"
+		file_start
+		+ r'(?P<name>.*?)'
+		+ optional_year
+		+ r'[\.\s]*(?P<s>\d+)x(?P<e>\d+).*'
+		+ file_end,
 		# Packed season+episode digits: "Show 101.mp4" → S1E01, "Show.1205.mkv" → S12E05
 		file_start + r'(?P<name>(?:.*?\D|))(?P<s>\d{1,2})(?P<e>\d{2})(?:\D.*|)' + file_end,
 	]
@@ -117,10 +130,12 @@ def parse_filename(filename: str) -> dict[str, str | int]:
 		if not match:
 			continue
 		match_dict = match.groupdict()
+		year_raw = match_dict.get('year')
 		return {
 			'name': match_dict['name'].replace('.', ' ').strip().rstrip(' -'),
 			'season': int(match_dict['s']),
 			'episode': int(match_dict['e']),
+			'year': int(year_raw) if year_raw else None,
 			'filename': filename,
 			'extension': match_dict['ext'],
 		}

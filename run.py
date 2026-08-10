@@ -37,6 +37,26 @@ def _series_label(series: dict) -> str:
 	return series['name']
 
 
+def _series_cache_key(parsed: dict) -> tuple:
+	return (parsed['name'], parsed.get('year'))
+
+
+def _narrow_series_by_year(series_list: list, year: int | None) -> list:
+	"""
+	If a filename year is present, prefer TMDB results with that air year.
+
+	Falls back to the full list when nothing matches the year so the user can
+	still choose manually.
+	"""
+	if year is None:
+		return series_list
+	matched = [series for series in series_list if series.get('year') == year]
+	if matched:
+		return matched
+	log.warn(f'no TMDB result for year {year}', prefix='Year')
+	return series_list
+
+
 def _process_file(
 	f: dict,
 	config: dict,
@@ -50,8 +70,9 @@ def _process_file(
 	Raises on hard failures so the caller can isolate the error and continue
 	the batch.
 	"""
-	if f['name'] in matches:
-		chosen = matches[f['name']]
+	cache_key = _series_cache_key(f)
+	if cache_key in matches:
+		chosen = matches[cache_key]
 		log.info(
 			f'{_series_label(chosen)} for {f["name"]}',
 			prefix='Cached',
@@ -61,6 +82,8 @@ def _process_file(
 		if not series_list:
 			log.warn(f['name'], prefix='No match')
 			return 'skipped'
+
+		series_list = _narrow_series_by_year(series_list, f.get('year'))
 
 		if len(series_list) == 1:
 			chosen = series_list[0]
@@ -78,7 +101,7 @@ def _process_file(
 				prefix='Selected',
 			)
 
-		matches[f['name']] = chosen
+		matches[cache_key] = chosen
 
 	episodename = moviedb.get_episode(
 		chosen['id'], f['season'], f['episode'], config['MOVIEDB_KEY']

@@ -144,6 +144,7 @@ class TestParseFilename:
 					'name': 'The Office',
 					'season': 1,
 					'episode': 1,
+					'year': None,
 					'extension': 'mp4',
 				},
 			),
@@ -153,6 +154,7 @@ class TestParseFilename:
 					'name': 'The Office',
 					'season': 1,
 					'episode': 1,
+					'year': None,
 					'extension': 'mkv',
 				},
 			),
@@ -162,15 +164,17 @@ class TestParseFilename:
 					'name': 'The Office',
 					'season': 1,
 					'episode': 2,
+					'year': None,
 					'extension': 'avi',
 				},
 			),
 			(
 				'with_year',
 				{
-					'name': 'The Office 2005',
+					'name': 'The Office',
 					'season': 2,
 					'episode': 3,
+					'year': 2005,
 					'extension': 'm4v',
 				},
 			),
@@ -180,6 +184,7 @@ class TestParseFilename:
 					'name': 'Yomi no Tsugai',
 					'season': 1,
 					'episode': 16,
+					'year': None,
 					'extension': 'mkv',
 				},
 			),
@@ -189,6 +194,7 @@ class TestParseFilename:
 					'name': 'Daemons Of The Shadow Realm',
 					'season': 1,
 					'episode': 6,
+					'year': None,
 					'extension': 'mkv',
 				},
 			),
@@ -201,11 +207,30 @@ class TestParseFilename:
 		assert result['season'] == expected['season']
 		assert result['episode'] == expected['episode']
 		assert result['extension'] == expected['extension']
+		assert result.get('year') == expected.get('year')
 		assert result['filename'] == filename
 
 	def test_dots_in_name_become_spaces(self):
 		result = io.parse_filename('The.Office.S01E01.mp4')
 		assert result['name'] == 'The Office'
+		assert result['year'] is None
+
+	@pytest.mark.parametrize(
+		'filename, name, year, season, episode',
+		[
+			('The.Office.2005.S01E01.mp4', 'The Office', 2005, 1, 1),
+			('The Office (2005) S01E01.mp4', 'The Office', 2005, 1, 1),
+			('The.Office.(2005).S01E01.mkv', 'The Office', 2005, 1, 1),
+			('The Office 2005 1x02.mkv', 'The Office', 2005, 1, 2),
+			('[Group] Show Name 2020 S01E01.mkv', 'Show Name', 2020, 1, 1),
+		],
+	)
+	def test_extracts_year_from_filename(self, filename, name, year, season, episode):
+		result = io.parse_filename(filename)
+		assert result['name'] == name
+		assert result['year'] == year
+		assert result['season'] == season
+		assert result['episode'] == episode
 
 	def test_unmatched_filename_raises(self):
 		with pytest.raises(io.FileIOException, match='Filename not matched'):

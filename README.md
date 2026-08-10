@@ -55,6 +55,9 @@ The tool parses series name, season, and episode from filenames matching common 
 - `The Office 1x01.mkv`
 - `The Office 102.avi` (compact `S01E02` style)
 - `The Office 2005 S02E03.m4v`
+- `The.Office.(2005).S01E01.mkv`
+
+When a year appears between the show name and season/episode marker, it is used to prefer the matching TMDB series and skip the interactive prompt when only one result matches that year. If multiple TMDB results share the same year, the tool still prompts.
 
 Supported video extensions: `mp4`, `mkv`, `avi`, `flv`, `m4v`.
 
