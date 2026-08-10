@@ -312,6 +312,81 @@ class TestMain:
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
+	def test_filename_year_auto_selects_matching_series(
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, monkeypatch, capsys
+	):
+		home, moved = media_dirs
+		filename = 'The Office 2005 S01E01.mp4'
+		(home / filename).write_text('video')
+		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_get_episode.return_value = 'Pilot'
+		monkeypatch.setattr(
+			'builtins.input',
+			lambda *_args: (_ for _ in ()).throw(AssertionError('should not prompt')),
+		)
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		expected = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		assert expected.exists()
+		mock_get_series.assert_called_once_with('The Office', 'test-api-key')
+		assert_logged(
+			capsys.readouterr().out,
+			('Matched', 'The Office (2005) for The Office'),
+		)
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_filename_year_still_prompts_when_multiple_same_year(
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, monkeypatch, capsys
+	):
+		home, moved = media_dirs
+		filename = 'Doctor Who 2005 S01E01.mp4'
+		(home / filename).write_text('video')
+		who_us = {'id': 1, 'name': 'Doctor Who', 'year': 2005}
+		who_uk = {'id': 2, 'name': 'Doctor Who', 'year': 2005}
+		who_other = {'id': 3, 'name': 'Doctor Who', 'year': 1963}
+		mock_get_series.return_value = [who_us, who_uk, who_other]
+		mock_get_episode.return_value = 'Rose'
+		monkeypatch.setattr('builtins.input', lambda _: '2')
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		expected = moved / 'Doctor Who (2005)' / 'Season 1' / 'S01E01 - Rose.mp4'
+		assert expected.exists()
+		out = capsys.readouterr().out
+		assert '(1) Doctor Who (2005)\n' in out
+		assert '(2) Doctor Who (2005)\n' in out
+		assert '1963' not in out
+		assert_logged(out, ('Selected', 'Doctor Who (2005) for Doctor Who'))
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_filename_year_falls_back_when_no_year_match(
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, monkeypatch, capsys
+	):
+		home, moved = media_dirs
+		filename = 'The Office 1999 S01E01.mp4'
+		(home / filename).write_text('video')
+		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_get_episode.return_value = 'Pilot'
+		monkeypatch.setattr('builtins.input', lambda _: '1')
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		expected = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		assert expected.exists()
+		assert_logged(
+			capsys.readouterr().out,
+			('Year', 'no TMDB result for year 1999'),
+			('Selected', 'The Office (2005) for The Office'),
+		)
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
 	def test_episode_not_found_leaves_file(
 		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
