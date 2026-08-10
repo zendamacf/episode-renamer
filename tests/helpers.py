@@ -14,16 +14,26 @@ PARSEABLE_FILENAMES = {
 
 TMDB_SEARCH_RESPONSE = {
 	'results': [
-		{'id': 2316, 'name': 'The Office', 'first_air_date': '2005-03-24'},
-		{'id': 9999, 'name': 'The Office (2010)', 'first_air_date': '2010-01-01'},
+		{
+			'id': 2316,
+			'name': 'The Office',
+			'first_air_date': '2005-03-24',
+			'origin_country': ['US'],
+		},
+		{
+			'id': 9999,
+			'name': 'The Office (2010)',
+			'first_air_date': '2010-01-01',
+			'origin_country': ['GB'],
+		},
 		{'id': 8888, 'name': 'No Date Show'},
 	],
 }
 
 TMDB_EPISODE_RESPONSE = {'name': 'Pilot'}
 
-OFFICE = {'id': 2316, 'name': 'The Office', 'year': 2005}
-OFFICE_UK = {'id': 9999, 'name': 'The Office', 'year': 2010}
+OFFICE = {'id': 2316, 'name': 'The Office', 'year': 2005, 'country': ['US']}
+OFFICE_UK = {'id': 9999, 'name': 'The Office', 'year': 2010, 'country': ['GB']}
 
 
 def assert_logged(output: str, *expectations: tuple[str, str] | str) -> None:

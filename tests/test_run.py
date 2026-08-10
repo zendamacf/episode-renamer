@@ -344,9 +344,9 @@ class TestMain:
 		home, moved = media_dirs
 		filename = 'Doctor Who 2005 S01E01.mp4'
 		(home / filename).write_text('video')
-		who_us = {'id': 1, 'name': 'Doctor Who', 'year': 2005}
-		who_uk = {'id': 2, 'name': 'Doctor Who', 'year': 2005}
-		who_other = {'id': 3, 'name': 'Doctor Who', 'year': 1963}
+		who_us = {'id': 1, 'name': 'Doctor Who', 'year': 2005, 'country': ['GB']}
+		who_uk = {'id': 2, 'name': 'Doctor Who', 'year': 2005, 'country': ['US']}
+		who_other = {'id': 3, 'name': 'Doctor Who', 'year': 1963, 'country': ['GB']}
 		mock_get_series.return_value = [who_us, who_uk, who_other]
 		mock_get_episode.return_value = 'Rose'
 		monkeypatch.setattr('builtins.input', lambda _: '2')
@@ -357,8 +357,8 @@ class TestMain:
 		expected = moved / 'Doctor Who (2005)' / 'Season 1' / 'S01E01 - Rose.mp4'
 		assert expected.exists()
 		out = capsys.readouterr().out
-		assert '(1) Doctor Who (2005)\n' in out
-		assert '(2) Doctor Who (2005)\n' in out
+		assert '(1) Doctor Who (2005) [GB]\n' in out
+		assert '(2) Doctor Who (2005) [US]\n' in out
 		assert '1963' not in out
 		assert_logged(out, ('Selected', 'Doctor Who (2005) for Doctor Who'))
 
