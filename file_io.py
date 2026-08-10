@@ -62,13 +62,17 @@ def parse_filename(filename: str) -> dict[str, str | int]:
 	"""
 	Uses regex to pull series name, season and episode numbers
 	"""
+	# Anime releases sometimes prefix filenames with the encoder/group name in square brackets
+	encoder_prefix = r'(?:\[[^\]]+\]\s*)?'
+	file_start = r'^' + encoder_prefix
+	file_end = r'\.(?P<ext>.*?)$'
 	regex_parsers = [
 		# S##E## style, optional year: "Show.S01E01.mkv", "Show 2020 S01E01.mp4"
-		r'^(?P<name>.*?)\.*?(\d{4})?\.*?s *(?P<s>\d+) *e *(?P<e>\d+).*\.(?P<ext>.*?)$',
+		file_start + r'(?P<name>.*?)\.*?(\d{4})?\.*?s *(?P<s>\d+) *e *(?P<e>\d+).*' + file_end,
 		# Season x episode: "Show 1x01.mkv", "Show.12x05.avi"
-		r'^(?P<name>.*?)(?P<s>\d+)x(?P<e>\d+).*\.(?P<ext>.*?)$',
+		file_start + r'(?P<name>.*?)(?P<s>\d+)x(?P<e>\d+).*' + file_end,
 		# Packed season+episode digits: "Show 101.mp4" → S1E01, "Show.1205.mkv" → S12E05
-		r'^(?P<name>(?:.*?\D|))(?P<s>\d{1,2})(?P<e>\d{2})(?:\D.*|)\.(?P<ext>.*?)$',
+		file_start + r'(?P<name>(?:.*?\D|))(?P<s>\d{1,2})(?P<e>\d{2})(?:\D.*|)' + file_end,
 	]
 	for parser in regex_parsers:
 		match = re.compile(parser, re.IGNORECASE).search(filename)
@@ -76,7 +80,7 @@ def parse_filename(filename: str) -> dict[str, str | int]:
 			continue
 		match_dict = match.groupdict()
 		return {
-			'name': match_dict['name'].replace('.', ' ').strip(),
+			'name': match_dict['name'].replace('.', ' ').strip().rstrip(' -'),
 			'season': int(match_dict['s']),
 			'episode': int(match_dict['e']),
 			'filename': filename,

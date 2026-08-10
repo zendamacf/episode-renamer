@@ -5,6 +5,11 @@ PARSEABLE_FILENAMES = {
 	'1x01': 'The Office 1x01.mkv',
 	'compact': 'The Office 102.avi',
 	'with_year': 'The Office 2005 S02E03.m4v',
+	'encoder_prefix': '[Judas] Yomi no Tsugai - S01E16.mkv',
+	'encoder_with_title': (
+		'[Anime Time] Daemons Of The Shadow Realm - S01E06 - '
+		'The Kagemori Clan And The Unknown Assailants.mkv'
+	),
 }
 
 TMDB_SEARCH_RESPONSE = {
