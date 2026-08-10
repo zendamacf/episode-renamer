@@ -214,6 +214,23 @@ class TestGetSeries:
 		assert results == [{'id': 1, 'name': 'Survivor', 'year': 2000, 'country': None}]
 
 	@patch('moviedb._request')
+	def test_empty_origin_country_yields_none(self, mock_request):
+		mock_request.return_value = {
+			'results': [
+				{
+					'id': 1,
+					'name': 'Survivor',
+					'first_air_date': '2000-05-31',
+					'origin_country': [],
+				}
+			],
+		}
+
+		results = moviedb.get_series('Survivor', 'test-key')
+
+		assert results == [{'id': 1, 'name': 'Survivor', 'year': 2000, 'country': None}]
+
+	@patch('moviedb._request')
 	def test_multiple_origin_countries_are_preserved(self, mock_request):
 		mock_request.return_value = {
 			'results': [

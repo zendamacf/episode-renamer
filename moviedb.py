@@ -100,8 +100,8 @@ def get_series(query: str, apikey: str) -> list:
 			log.warn(r['name'], prefix='Ignoring')
 			continue
 
-		country = r.get('origin_country') or None
-		if country == []:
+		country = r.get('origin_country')
+		if not country:
 			country = None
 
 		found.append(
