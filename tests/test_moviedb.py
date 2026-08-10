@@ -150,7 +150,7 @@ class TestGetSeries:
 		assert results[1] == {
 			'id': 9999,
 			'name': 'The Office',
-			'year': 2010,
+			'year': 2001,
 			'country': ['GB'],
 		}
 		mock_request.assert_called_once_with(

@@ -22,8 +22,8 @@ TMDB_SEARCH_RESPONSE = {
 		},
 		{
 			'id': 9999,
-			'name': 'The Office (2010)',
-			'first_air_date': '2010-01-01',
+			'name': 'The Office (2001)',
+			'first_air_date': '2001-07-09',
 			'origin_country': ['GB'],
 		},
 		{'id': 8888, 'name': 'No Date Show'},
@@ -33,7 +33,7 @@ TMDB_SEARCH_RESPONSE = {
 TMDB_EPISODE_RESPONSE = {'name': 'Pilot'}
 
 OFFICE = {'id': 2316, 'name': 'The Office', 'year': 2005, 'country': ['US']}
-OFFICE_UK = {'id': 9999, 'name': 'The Office', 'year': 2010, 'country': ['GB']}
+OFFICE_UK = {'id': 9999, 'name': 'The Office', 'year': 2001, 'country': ['GB']}
 
 
 def assert_logged(output: str, *expectations: tuple[str, str] | str) -> None:

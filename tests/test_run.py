@@ -290,7 +290,7 @@ class TestMain:
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.main(dryrun=False)
 
-		expected = moved / 'The Office (2010)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		expected = moved / 'The Office (2001)' / 'Season 1' / 'S01E01 - Pilot.mp4'
 		assert expected.exists()
 
 	@patch('run.moviedb.get_series')
@@ -342,25 +342,25 @@ class TestMain:
 		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, monkeypatch, capsys
 	):
 		home, moved = media_dirs
-		filename = 'Doctor Who 2005 S01E01.mp4'
+		filename = 'Survivor 2000 S01E01.mp4'
 		(home / filename).write_text('video')
-		who_us = {'id': 1, 'name': 'Doctor Who', 'year': 2005, 'country': ['GB']}
-		who_uk = {'id': 2, 'name': 'Doctor Who', 'year': 2005, 'country': ['US']}
-		who_other = {'id': 3, 'name': 'Doctor Who', 'year': 1963, 'country': ['GB']}
-		mock_get_series.return_value = [who_us, who_uk, who_other]
-		mock_get_episode.return_value = 'Rose'
+		survivor_us = {'id': 1, 'name': 'Survivor', 'year': 2000, 'country': ['US']}
+		survivor_au = {'id': 2, 'name': 'Survivor', 'year': 2000, 'country': ['AU']}
+		survivor_other = {'id': 3, 'name': 'Survivor', 'year': 2006, 'country': ['ZA']}
+		mock_get_series.return_value = [survivor_us, survivor_au, survivor_other]
+		mock_get_episode.return_value = 'The Marooning'
 		monkeypatch.setattr('builtins.input', lambda _: '2')
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.main(dryrun=False)
 
-		expected = moved / 'Doctor Who (2005)' / 'Season 1' / 'S01E01 - Rose.mp4'
+		expected = moved / 'Survivor (2000)' / 'Season 1' / 'S01E01 - The Marooning.mp4'
 		assert expected.exists()
 		out = capsys.readouterr().out
-		assert '(1) Doctor Who (2005) [GB]\n' in out
-		assert '(2) Doctor Who (2005) [US]\n' in out
-		assert '1963' not in out
-		assert_logged(out, ('Selected', 'Doctor Who (2005) for Doctor Who'))
+		assert '(1) Survivor (2000) [US]\n' in out
+		assert '(2) Survivor (2000) [AU]\n' in out
+		assert '2006' not in out
+		assert_logged(out, ('Selected', 'Survivor (2000) for Survivor'))
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')

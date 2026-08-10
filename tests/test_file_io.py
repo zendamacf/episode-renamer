@@ -337,7 +337,7 @@ class TestPromptUser:
 		io.prompt_user('The Office', series_list)
 		out = capsys.readouterr().out
 		assert '(1) The Office (2005) [US]\n' in out
-		assert '(2) The Office (2010) [GB]\n' in out
+		assert '(2) The Office (2001) [GB]\n' in out
 
 	def test_omits_country_when_missing(self, monkeypatch, capsys):
 		series = [{'id': 1, 'name': 'Survivor', 'year': 2000}]
