@@ -58,17 +58,25 @@ The tool parses series name, season, and episode from filenames matching common 
 
 Supported video extensions: `mp4`, `mkv`, `avi`, `flv`, `m4v`.
 
+Matching subtitle companions next to a video (same basename, optionally with a language tag) are moved with it:
+
+- `The Office S01E01.srt` → `S01E01 - Pilot.en.srt`
+- `The Office S01E01.en.srt` → `S01E01 - Pilot.en.srt`
+
+Supported subtitle extensions: `srt`, `ass`, `ssa`, `vtt`, `sub`. Renamed subtitles always use the `.en.<ext>` language suffix.
+
 Dots in series names are treated as spaces (e.g. `The.Office.S01E01.mp4` → "The Office").
 
 ### Output structure
 
-Files are renamed to `S01E01 - Episode Title.ext` and moved under:
+Files are renamed to `S01E01 - Episode Title.ext` (subtitles: `S01E01 - Episode Title.en.ext`) and moved under:
 
 ```
 MOVED/
   Show Name (2005)/
     Season 1/
       S01E01 - Pilot.mp4
+      S01E01 - Pilot.en.srt
 ```
 
 When multiple TMDB series match a filename, the tool prompts for the correct one. Series choices are cached for the duration of a run. Enter `i` to skip a file.

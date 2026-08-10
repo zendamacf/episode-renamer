@@ -42,11 +42,11 @@ def _process_file(
 	config: dict,
 	matches: dict,
 	dryrun: bool,
-) -> dict | Literal['skipped']:
+) -> list[dict] | Literal['skipped']:
 	"""
-	Resolve metadata and optionally rename one file.
+	Resolve metadata and optionally rename one video (plus subtitle companions).
 
-	Returns a move record {'src', 'dest'} on success, or 'skipped'.
+	Returns a list of move records ``{'src', 'dest'}`` on success, or 'skipped'.
 	Raises on hard failures so the caller can isolate the error and continue
 	the batch.
 	"""
@@ -93,13 +93,34 @@ def _process_file(
 	new_filename = io.get_filename(
 		f['filename'], f['season'], f['episode'], episodename, f['extension']
 	)
+	companions = io.find_subtitle_companions(config['HOME'], f['filename'])
+	subtitle_plans = [
+		(
+			sub['filename'],
+			io.get_subtitle_filename(
+				sub['filename'],
+				f['season'],
+				f['episode'],
+				episodename,
+				sub['extension'],
+			),
+		)
+		for sub in companions
+	]
+
 	if dryrun:
 		log.warn(
 			f'{f["filename"]} -> {new_filename}',
 			prefix='Dry-run',
 		)
+		for sub_name, sub_new in subtitle_plans:
+			log.warn(
+				f'{sub_name} -> {sub_new}',
+				prefix='Dry-run',
+			)
 		return 'skipped'
 
+	moves: list[dict] = []
 	src = os.path.join(config['HOME'], f['filename'])
 	dest = io.rename_and_move(
 		config['HOME'],
@@ -110,7 +131,26 @@ def _process_file(
 		chosen['year'],
 		f['season'],
 	)
-	return {'src': src, 'dest': dest}
+	moves.append({'src': src, 'dest': dest})
+
+	for sub_name, sub_new in subtitle_plans:
+		try:
+			sub_src = os.path.join(config['HOME'], sub_name)
+			sub_dest = io.rename_and_move(
+				config['HOME'],
+				sub_name,
+				config['MOVED'],
+				sub_new,
+				chosen['name'],
+				chosen['year'],
+				f['season'],
+			)
+			moves.append({'src': sub_src, 'dest': sub_dest})
+		except (io.FileIOException, OSError) as e:
+			# Video already moved; keep going so successful moves are journaled.
+			log.error(f'{sub_name}: {e}', prefix='Failed')
+
+	return moves
 
 
 def _restore_move(move: dict, dryrun: bool, moved_root: str) -> bool:
@@ -285,8 +325,8 @@ def main(dryrun: bool) -> None:
 		if result == 'skipped':
 			skipped += 1
 		else:
-			moves.append(result)
-			moved += 1
+			moves.extend(result)
+			moved += len(result)
 
 	if moves and not dryrun:
 		try:

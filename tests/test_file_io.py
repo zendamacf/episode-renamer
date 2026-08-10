@@ -71,6 +71,57 @@ class TestIsVideoFile:
 		assert io.is_video_file(filename) is False
 
 
+class TestIsSubtitleFile:
+	@pytest.mark.parametrize(
+		'filename',
+		[
+			'show.srt',
+			'show.ass',
+			'show.ssa',
+			'show.vtt',
+			'show.sub',
+			'show.SRT',
+		],
+	)
+	def test_subtitle_extensions(self, filename):
+		assert io.is_subtitle_file(filename) is True
+
+	@pytest.mark.parametrize(
+		'filename',
+		[
+			'show.mp4',
+			'show.txt',
+			'show',
+		],
+	)
+	def test_non_subtitle_extensions(self, filename):
+		assert io.is_subtitle_file(filename) is False
+
+
+class TestFindSubtitleCompanions:
+	def test_matches_plain_and_lang_tagged_subs(self, tmp_path):
+		video = 'The Office S01E01.mp4'
+		(tmp_path / video).write_text('video')
+		(tmp_path / 'The Office S01E01.srt').write_text('sub')
+		(tmp_path / 'The Office S01E01.en.srt').write_text('en')
+		(tmp_path / 'The Office S01E01.ass').write_text('ass')
+		(tmp_path / 'The Office S01E02.srt').write_text('other')
+		(tmp_path / 'readme.txt').write_text('notes')
+
+		found = io.find_subtitle_companions(str(tmp_path), video)
+
+		assert found == [
+			{'filename': 'The Office S01E01.ass', 'extension': 'ass'},
+			{'filename': 'The Office S01E01.en.srt', 'extension': 'srt'},
+			{'filename': 'The Office S01E01.srt', 'extension': 'srt'},
+		]
+
+	def test_returns_empty_when_no_companions(self, tmp_path):
+		video = 'The Office S01E01.mp4'
+		(tmp_path / video).write_text('video')
+		assert io.find_subtitle_companions(str(tmp_path), video) == []
+
+
 class TestParseFilename:
 	@pytest.mark.parametrize(
 		'key, expected',
@@ -167,6 +218,16 @@ class TestGetFilename:
 	def test_strips_unsafe_chars_from_episode_name(self):
 		result = io.get_filename('orig.mp4', 1, 1, 'Pilot: "Start"', 'mp4')
 		assert result == 'S01E01 - Pilot Start.mp4'
+
+
+class TestGetSubtitleFilename:
+	def test_inserts_en_language_tag(self):
+		result = io.get_subtitle_filename('orig.srt', 1, 1, 'Pilot', 'srt')
+		assert result == 'S01E01 - Pilot.en.srt'
+
+	def test_preserves_subtitle_extension(self):
+		result = io.get_subtitle_filename('orig.ass', 2, 3, 'Title', 'ass')
+		assert result == 'S02E03 - Title.en.ass'
 
 
 class TestFindFiles:
