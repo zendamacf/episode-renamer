@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 from helpers import OFFICE, OFFICE_UK, assert_logged
@@ -508,6 +509,41 @@ class TestHistory:
 			('Error', 'corrupt'),
 		)
 
+	def test_show_history_handles_incomplete_records(self, isolate_rename_history, capsys):
+		isolate_rename_history.write_text(
+			json.dumps(
+				{
+					'version': 1,
+					'batches': [
+						{},
+						{'id': 'batch-2', 'moves': None},
+						{
+							'id': 'batch-3',
+							'moves': [
+								{},
+								{'src': '/only-src'},
+								{'dest': '/only-dest'},
+							],
+						},
+					],
+				}
+			)
+		)
+
+		run.show_history()
+
+		out = capsys.readouterr().out
+		assert_logged(
+			out,
+			('History', '3 batch(es)'),
+			('Batch', '? (0 file(s), undo 3)'),
+			('Batch', 'batch-2 (0 file(s), undo 2)'),
+			('Batch', 'batch-3 (3 file(s), undo 1)'),
+			'  ? -> ?',
+			'  /only-src -> ?',
+			'  ? -> /only-dest',
+		)
+
 
 class TestUndo:
 	def _seed_moved_file(self, home, moved, name='The Office S01E01.mp4'):
@@ -533,6 +569,35 @@ class TestUndo:
 		assert_logged(
 			capsys.readouterr().out,
 			('Undone', '1 restored, 0 failed'),
+		)
+
+	def test_undo_restores_subtitle_companions(self, media_dirs, config_for_dirs, capsys):
+		home, moved = media_dirs
+		video_src = home / 'The Office S01E01.mp4'
+		sub_src = home / 'The Office S01E01.srt'
+		season = moved / 'The Office (2005)' / 'Season 1'
+		video_dest = season / 'S01E01 - Pilot.mp4'
+		sub_dest = season / 'S01E01 - Pilot.en.srt'
+		season.mkdir(parents=True)
+		video_dest.write_text('video')
+		sub_dest.write_text('srt')
+		history.append_batch(
+			[
+				{'src': str(video_src), 'dest': str(video_dest)},
+				{'src': str(sub_src), 'dest': str(sub_dest)},
+			]
+		)
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.undo_batches(1, dryrun=False)
+
+		assert video_src.read_text() == 'video'
+		assert sub_src.read_text() == 'srt'
+		assert not season.exists()
+		assert history.load_history()['batches'] == []
+		assert_logged(
+			capsys.readouterr().out,
+			('Undone', '2 restored, 0 failed'),
 		)
 
 	def test_undo_dryrun_leaves_files_and_history(self, media_dirs, config_for_dirs, capsys):
