@@ -1,1 +1,0 @@
-Add file match pattern for anime encoder prefixes e.g. `[Judas]`.

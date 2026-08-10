@@ -92,7 +92,7 @@ Common tasks are run via the [Makefile](Makefile):
 | `make test` | pytest |
 | `make check` | `lint` + `typecheck` |
 | `make ci` | `check` + `test` (what CI runs) |
-| `make release VERSION=0.2.1` | Prep release (bump version + changelog) |
+| `make release VERSION=0.2.2` | Prep release (bump version + changelog) |
 
 See [RELEASE.md](RELEASE.md) for changelog and release steps.
 
