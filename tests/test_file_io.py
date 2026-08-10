@@ -121,6 +121,18 @@ class TestFindSubtitleCompanions:
 		(tmp_path / video).write_text('video')
 		assert io.find_subtitle_companions(str(tmp_path), video) == []
 
+	def test_ignores_directories_and_non_subtitle_siblings(self, tmp_path):
+		video = 'The Office S01E01.mp4'
+		(tmp_path / video).write_text('video')
+		(tmp_path / 'The Office S01E01.extras').mkdir()
+		(tmp_path / 'The Office S01E01.nfo').write_text('nfo')
+		(tmp_path / 'The Office S01E01..srt').write_text('empty-lang')
+		(tmp_path / 'The Office S01E01.srt').write_text('sub')
+
+		found = io.find_subtitle_companions(str(tmp_path), video)
+
+		assert found == [{'filename': 'The Office S01E01.srt', 'extension': 'srt'}]
+
 
 class TestParseFilename:
 	@pytest.mark.parametrize(
@@ -228,6 +240,10 @@ class TestGetSubtitleFilename:
 	def test_preserves_subtitle_extension(self):
 		result = io.get_subtitle_filename('orig.ass', 2, 3, 'Title', 'ass')
 		assert result == 'S02E03 - Title.en.ass'
+
+	def test_strips_unsafe_chars_from_episode_name(self):
+		result = io.get_subtitle_filename('orig.srt', 1, 1, 'Pilot: "Start"', 'srt')
+		assert result == 'S01E01 - Pilot Start.en.srt'
 
 
 class TestFindFiles:
