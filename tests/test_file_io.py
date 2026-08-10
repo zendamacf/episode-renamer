@@ -111,6 +111,24 @@ class TestParseFilename:
 					'extension': 'm4v',
 				},
 			),
+			(
+				'encoder_prefix',
+				{
+					'name': 'Yomi no Tsugai',
+					'season': 1,
+					'episode': 16,
+					'extension': 'mkv',
+				},
+			),
+			(
+				'encoder_with_title',
+				{
+					'name': 'Daemons Of The Shadow Realm',
+					'season': 1,
+					'episode': 6,
+					'extension': 'mkv',
+				},
+			),
 		],
 	)
 	def test_parse_formats(self, key, expected):
