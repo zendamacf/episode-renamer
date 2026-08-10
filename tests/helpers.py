@@ -7,7 +7,8 @@ PARSEABLE_FILENAMES = {
 	'with_year': 'The Office 2005 S02E03.m4v',
 	'encoder_prefix': '[Judas] Yomi no Tsugai - S01E16.mkv',
 	'encoder_with_title': (
-		'[Anime Time] Daemons Of The Shadow Realm - S01E06 - The Kagemori Clan And The Unknown Assailants.mkv'
+		'[Anime Time] Daemons Of The Shadow Realm - S01E06 - '
+		'The Kagemori Clan And The Unknown Assailants.mkv'
 	),
 }
 
