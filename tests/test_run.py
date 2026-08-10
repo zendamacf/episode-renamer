@@ -111,6 +111,105 @@ class TestMain:
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
+	def test_moves_subtitle_companions_with_en_suffix(
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		filename = 'The Office S01E01.mp4'
+		sub_plain = 'The Office S01E01.srt'
+		sub_lang = 'The Office S01E01.eng.ass'
+		(home / filename).write_text('video')
+		(home / sub_plain).write_text('srt')
+		(home / sub_lang).write_text('ass')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		season = moved / 'The Office (2005)' / 'Season 1'
+		video_dest = season / 'S01E01 - Pilot.mp4'
+		srt_dest = season / 'S01E01 - Pilot.en.srt'
+		ass_dest = season / 'S01E01 - Pilot.en.ass'
+		assert video_dest.exists()
+		assert srt_dest.exists() and srt_dest.read_text() == 'srt'
+		assert ass_dest.exists() and ass_dest.read_text() == 'ass'
+		assert not (home / filename).exists()
+		assert not (home / sub_plain).exists()
+		assert not (home / sub_lang).exists()
+		assert_logged(
+			capsys.readouterr().out,
+			('Moved', str(video_dest)),
+			('Moved', str(srt_dest)),
+			('Moved', str(ass_dest)),
+			('Done', '3 moved, 0 skipped, 0 failed'),
+		)
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_dryrun_previews_subtitle_companions(
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+	):
+		home, _ = media_dirs
+		filename = 'The Office S01E01.mp4'
+		sub = 'The Office S01E01.srt'
+		(home / filename).write_text('video')
+		(home / sub).write_text('srt')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=True)
+
+		assert (home / filename).exists()
+		assert (home / sub).exists()
+		assert_logged(
+			capsys.readouterr().out,
+			('Dry-run', 'The Office S01E01.mp4 -> S01E01 - Pilot.mp4'),
+			('Dry-run', 'The Office S01E01.srt -> S01E01 - Pilot.en.srt'),
+			('Done', '0 moved, 1 skipped, 0 failed'),
+		)
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_subtitle_collision_still_records_video_move(
+		self,
+		mock_get_series,
+		mock_get_episode,
+		media_dirs,
+		config_for_dirs,
+		isolate_rename_history,
+		capsys,
+	):
+		home, moved = media_dirs
+		filename = 'The Office S01E01.mp4'
+		(home / filename).write_text('video')
+		(home / 'The Office S01E01.srt').write_text('one')
+		(home / 'The Office S01E01.en.srt').write_text('two')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		season = moved / 'The Office (2005)' / 'Season 1'
+		assert (season / 'S01E01 - Pilot.mp4').exists()
+		# Sorted companions: .en.srt first, then .srt collides on .en.srt dest.
+		assert (season / 'S01E01 - Pilot.en.srt').read_text() == 'two'
+		assert {p.name for p in home.iterdir()} == {'The Office S01E01.srt'}
+		data = history.load_history()
+		assert len(data['batches']) == 1
+		assert len(data['batches'][0]['moves']) == 2
+		out = capsys.readouterr().out
+		assert_logged(
+			out,
+			('Failed', 'The Office S01E01.srt:'),
+			('Done', '2 moved, 0 skipped, 0 failed'),
+		)
+		assert 'already Exists' in out
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
 	def test_duplicate_destination_logs_and_continues(
 		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):

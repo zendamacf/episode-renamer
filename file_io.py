@@ -18,6 +18,10 @@ class FileIOException(Exception):
 
 
 REQUIRED_CONFIG_KEYS = ('MOVIEDB_KEY', 'HOME', 'MOVED')
+VIDEO_EXTENSIONS = frozenset({'mp4', 'flv', 'avi', 'mkv', 'm4v'})
+SUBTITLE_EXTENSIONS = frozenset({'srt', 'ass', 'ssa', 'vtt', 'sub'})
+# Language tag written on renamed subtitle files (e.g. S01E01 - Pilot.en.srt).
+SUBTITLE_LANG = 'en'
 
 
 def read_config(filename: str) -> dict:
@@ -55,7 +59,41 @@ def is_video_file(filename: str) -> bool:
 	parts = filename.rsplit('.', 1)
 	if len(parts) == 1:
 		return False
-	return parts[1].lower() in {'mp4', 'flv', 'avi', 'mkv', 'm4v'}
+	return parts[1].lower() in VIDEO_EXTENSIONS
+
+
+def is_subtitle_file(filename: str) -> bool:
+	"""
+	Returns True if the file has a known subtitle extension.
+	"""
+	parts = filename.rsplit('.', 1)
+	if len(parts) == 1:
+		return False
+	return parts[1].lower() in SUBTITLE_EXTENSIONS
+
+
+def find_subtitle_companions(directory: str, video_filename: str) -> list[dict[str, str]]:
+	"""
+	Find subtitle files that pair with a video by basename.
+
+	Matches ``stem.srt`` and ``stem.<lang>.srt`` (case-insensitive lang/ext).
+	"""
+	stem = video_filename.rsplit('.', 1)[0]
+	prefix = stem + '.'
+	companions: list[dict[str, str]] = []
+	for name in sorted(os.listdir(directory), key=str.lower):
+		if name == video_filename or not name.startswith(prefix):
+			continue
+		path = os.path.join(directory, name)
+		if not os.path.isfile(path):
+			continue
+		rest = name[len(prefix) :]
+		parts = rest.split('.')
+		if len(parts) == 1 and parts[0].lower() in SUBTITLE_EXTENSIONS:
+			companions.append({'filename': name, 'extension': parts[0].lower()})
+		elif len(parts) == 2 and parts[0] and parts[1].lower() in SUBTITLE_EXTENSIONS:
+			companions.append({'filename': name, 'extension': parts[1].lower()})
+	return companions
 
 
 def parse_filename(filename: str) -> dict[str, str | int]:
@@ -127,6 +165,24 @@ def get_filename(filename: str, season: int, episode: int, episodename: str, ext
 	season_str = f'{season:02d}'
 	episode_str = f'{episode:02d}'
 	new_filename = f'S{season_str}E{episode_str} - {episodename}.{extension}'
+	log.info(filename, prefix='Current')
+	log.info(new_filename, prefix='New')
+	return winsafe_filename(new_filename)
+
+
+def get_subtitle_filename(
+	filename: str,
+	season: int,
+	episode: int,
+	episodename: str,
+	extension: str,
+) -> str:
+	"""
+	Returns the new subtitle filename (``SxxExx - Title.en.ext``).
+	"""
+	season_str = f'{season:02d}'
+	episode_str = f'{episode:02d}'
+	new_filename = f'S{season_str}E{episode_str} - {episodename}.{SUBTITLE_LANG}.{extension}'
 	log.info(filename, prefix='Current')
 	log.info(new_filename, prefix='New')
 	return winsafe_filename(new_filename)
