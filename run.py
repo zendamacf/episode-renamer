@@ -15,13 +15,19 @@ parser.add_argument(
 	action='store_true',
 	help='Instead of renaming the files, just display what changes would be made.',
 )
-parser.add_argument(
+mode = parser.add_mutually_exclusive_group()
+mode.add_argument(
 	'--undo',
 	nargs='?',
 	const=1,
 	type=int,
 	metavar='N',
 	help='Undo the last N rename batch(es) (default: 1).',
+)
+mode.add_argument(
+	'--history',
+	action='store_true',
+	help='List recorded rename batches (newest last).',
 )
 
 
@@ -134,6 +140,36 @@ def _restore_move(move: dict, dryrun: bool, moved_root: str) -> bool:
 	io.remove_empty_parents(dest, stop_at=moved_root)
 	log.success(src, prefix='Restored')
 	return True
+
+
+def show_history() -> None:
+	"""
+	Print recorded rename batches (oldest first, newest last).
+	"""
+	try:
+		data = history.load_history()
+	except history.HistoryException as e:
+		log.error(str(e), prefix='Error')
+		return
+
+	batches = data['batches']
+	if not batches:
+		log.warn('No rename history', prefix='Skip')
+		return
+
+	log.info(f'{len(batches)} batch(es)', prefix='History')
+	for index, batch in enumerate(batches, start=1):
+		moves = batch.get('moves') or []
+		# Newest batch is last; show relative undo index (1 = last undo).
+		undo_index = len(batches) - index + 1
+		log.info(
+			f'{batch.get("id", "?")} ({len(moves)} file(s), undo {undo_index})',
+			prefix='Batch',
+		)
+		for move in moves:
+			src = move.get('src', '?')
+			dest = move.get('dest', '?')
+			log.plain(f'  {src} -> {dest}')
 
 
 def undo_batches(n: int, dryrun: bool) -> None:
@@ -267,7 +303,9 @@ def main(dryrun: bool) -> None:
 
 if __name__ == '__main__':
 	args = parser.parse_args()
-	if args.undo is not None:
+	if args.history:
+		show_history()
+	elif args.undo is not None:
 		undo_batches(args.undo, args.dryrun)
 	else:
 		main(args.dryrun)

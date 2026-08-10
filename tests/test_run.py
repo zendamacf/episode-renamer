@@ -368,6 +368,48 @@ class TestHistoryRecording:
 		assert len(data['batches'][0]['moves']) == 2
 
 
+class TestHistory:
+	def test_show_history_empty(self, capsys):
+		run.show_history()
+		assert_logged(
+			capsys.readouterr().out,
+			('Skip', 'No rename history'),
+		)
+
+	def test_show_history_lists_batches(self, media_dirs, capsys):
+		home, moved = media_dirs
+		src1 = home / 'The Office S01E01.mp4'
+		dest1 = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		src2 = home / 'The Office S01E02.mp4'
+		dest2 = moved / 'The Office (2005)' / 'Season 1' / 'S01E02 - Diversity Day.mp4'
+		history.append_batch([{'src': str(src1), 'dest': str(dest1)}])
+		history.append_batch([{'src': str(src2), 'dest': str(dest2)}])
+
+		run.show_history()
+
+		out = capsys.readouterr().out
+		assert_logged(
+			out,
+			('History', '2 batch(es)'),
+			f'  {src1} -> {dest1}',
+			f'  {src2} -> {dest2}',
+		)
+		assert 'undo 2' in out  # oldest batch
+		assert 'undo 1' in out  # newest batch
+
+	def test_show_history_load_error(self, capsys):
+		with patch(
+			'run.history.load_history',
+			side_effect=history.HistoryException('corrupt'),
+		):
+			run.show_history()
+
+		assert_logged(
+			capsys.readouterr().out,
+			('Error', 'corrupt'),
+		)
+
+
 class TestUndo:
 	def _seed_moved_file(self, home, moved, name='The Office S01E01.mp4'):
 		src = home / name

@@ -37,6 +37,7 @@ Edit `config.json` with your TMDB API key and directory paths.
 ```bash
 python run.py           # rename and move files
 python run.py --dryrun  # preview changes without modifying files
+python run.py --history # list recorded rename batches
 python run.py --undo    # undo the last rename batch
 python run.py --undo 2  # undo the last two rename batches
 python run.py --undo --dryrun  # preview what undo would restore
@@ -44,7 +45,7 @@ python run.py --undo --dryrun  # preview what undo would restore
 
 `--dryrun` does not move files, but it still calls TMDB and uses API quota.
 
-Successful renames are recorded in `rename_history.json` (next to `config.json`). Undo moves files back to `HOME` and removes empty show/season folders.
+Successful renames are recorded in `rename_history.json` (next to `config.json`). `--history` lists each batch with its id, file count, undo index (`undo 1` is the newest batch), and src → dest paths. Undo moves files back to `HOME` and removes empty show/season folders.
 
 ### Supported input filenames
 
