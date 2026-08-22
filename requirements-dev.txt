@@ -1,6 +1,6 @@
 -r requirements.txt
 ruff==0.16.2
-basedpyright==1.39.9
+basedpyright==1.39.10
 pytest==9.1.1
 pytest-cov==7.1.0
 towncrier==25.8.0
