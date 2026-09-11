@@ -3,4 +3,4 @@ ruff==0.16.5
 basedpyright==1.40.0
 pytest==9.1.1
 pytest-cov==7.1.0
-towncrier==25.8.0
+towncrier==26.9.0
