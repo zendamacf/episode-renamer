@@ -31,16 +31,27 @@ Edit `config.json` with your TMDB API key and directory paths.
 | `MOVIEDB_KEY` | TMDB API key (can also be set via the `MOVIEDB_KEY` environment variable, which overrides the config file) |
 | `HOME` | Directory containing unsorted episode files |
 | `MOVED` | Destination root for renamed and sorted files |
+| `SUBTITLE_LANG` | Optional. Default language tag for renamed subtitles when the source file has no tag (default: `en`). Overridden by the `SUBTITLE_LANG` environment variable. |
+| `RECURSIVE_SCAN` | Optional. When `true`, scan nested folders under `HOME` for videos (default: `false`). |
 
 ## Usage
 
 ```bash
 python run.py           # rename and move files
 python run.py --dryrun  # preview changes without modifying files
+python run.py --quiet   # errors and final summary only (for cron/scripts)
+python run.py --recursive  # scan nested folders under HOME (overrides RECURSIVE_SCAN)
 python run.py --history # list recorded rename batches
 python run.py --undo    # undo the last rename batch
 python run.py --undo 2  # undo the last two rename batches
 python run.py --undo --dryrun  # preview what undo would restore
+python run.py --undo --quiet   # undo with minimal output
+```
+
+With `--quiet`, a successful rename run prints only the final `Done:` summary (plus any `Error:` lines). Example for a wrapper script:
+
+```bash
+python run.py --quiet || exit 1
 ```
 
 `--dryrun` does not move files, but it still calls TMDB and uses API quota.
@@ -63,10 +74,11 @@ Supported video extensions: `mp4`, `mkv`, `avi`, `flv`, `m4v`.
 
 Matching subtitle companions next to a video (same basename, optionally with a language tag) are moved with it:
 
-- `The Office S01E01.srt` → `S01E01 - Pilot.en.srt`
+- `The Office S01E01.srt` → `S01E01 - Pilot.en.srt` (uses `SUBTITLE_LANG` when no tag is present)
+- `The Office S01E01.fr.srt` → `S01E01 - Pilot.fr.srt` (preserves the source language tag)
 - `The Office S01E01.en.srt` → `S01E01 - Pilot.en.srt`
 
-Supported subtitle extensions: `srt`, `ass`, `ssa`, `vtt`, `sub`. Renamed subtitles always use the `.en.<ext>` language suffix.
+Supported subtitle extensions: `srt`, `ass`, `ssa`, `vtt`, `sub`. Renamed subtitles use `.<lang>.<ext>` where `lang` comes from the source filename when present, otherwise from `SUBTITLE_LANG` (default `en`).
 
 Dots in series names are treated as spaces (e.g. `The.Office.S01E01.mp4` → "The Office").
 

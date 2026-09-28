@@ -5,6 +5,27 @@ from helpers import assert_logged
 import log
 
 
+class TestQuietMode:
+	def test_quiet_suppresses_info_but_not_error(self, capsys):
+		log.set_quiet(True)
+		try:
+			log.info('hidden')
+			log.error('visible', prefix='Error')
+		finally:
+			log.set_quiet(False)
+		out = capsys.readouterr().out
+		assert 'hidden' not in out
+		assert 'visible' in out
+
+	def test_summary_prints_when_quiet(self, capsys):
+		log.set_quiet(True)
+		try:
+			log.summary('1 moved, 0 skipped, 0 failed', prefix='Done')
+		finally:
+			log.set_quiet(False)
+		assert_logged(capsys.readouterr().out, ('Done', '1 moved, 0 skipped, 0 failed'))
+
+
 class TestLogColors:
 	def test_info_plain_when_not_tty(self, capsys):
 		with patch('sys.stdout.isatty', return_value=False):

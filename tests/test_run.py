@@ -5,6 +5,7 @@ from helpers import OFFICE, OFFICE_UK, assert_logged
 
 import file_io as io
 import history
+import log
 import moviedb
 import run
 
@@ -51,6 +52,96 @@ class TestLoadConfig:
 			capsys.readouterr().out,
 			('Error', 'HOME and MOVED must be different directories'),
 		)
+
+
+class TestQuietAndRecursive:
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_quiet_rename_prints_summary_only(
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		filename = 'The Office S01E01.mp4'
+		(home / filename).write_text('video')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+		log.set_quiet(True)
+		try:
+			with patch('run.io.read_config', return_value=config_for_dirs):
+				run.main(dryrun=False)
+		finally:
+			log.set_quiet(False)
+
+		out = capsys.readouterr().out
+		assert 'Running renamer' not in out
+		assert_logged(out, ('Done', '1 moved, 0 skipped, 0 failed'))
+		assert (moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4').exists()
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_recursive_scan_finds_nested_video(
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		nested = home / 'inbox'
+		nested.mkdir()
+		filename = 'The Office S01E01.mp4'
+		(nested / filename).write_text('video')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False, recursive=True)
+
+		expected = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		assert expected.exists()
+		assert not (nested / filename).exists()
+		data = history.load_history()
+		assert data['batches'][0]['moves'][0]['src'] == str(nested / filename)
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_recursive_undo_restores_nested_source(
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		nested = home / 'inbox'
+		nested.mkdir()
+		filename = 'The Office S01E01.mp4'
+		(nested / filename).write_text('video')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False, recursive=True)
+
+		dest = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		assert dest.exists()
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.undo_batches(1, dryrun=False)
+
+		assert (nested / filename).exists()
+		assert not dest.exists()
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_french_subtitle_tag_preserved(
+		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		filename = 'The Office S01E01.mp4'
+		sub = 'The Office S01E01.fr.srt'
+		(home / filename).write_text('video')
+		(home / sub).write_text('sub')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		dest = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.fr.srt'
+		assert dest.exists()
 
 
 class TestMain:
@@ -167,7 +258,7 @@ class TestMain:
 		season = moved / 'The Office (2005)' / 'Season 1'
 		video_dest = season / 'S01E01 - Pilot.mp4'
 		srt_dest = season / 'S01E01 - Pilot.en.srt'
-		ass_dest = season / 'S01E01 - Pilot.en.ass'
+		ass_dest = season / 'S01E01 - Pilot.eng.ass'
 		assert video_dest.exists()
 		assert srt_dest.exists() and srt_dest.read_text() == 'srt'
 		assert ass_dest.exists() and ass_dest.read_text() == 'ass'
@@ -178,7 +269,7 @@ class TestMain:
 			capsys.readouterr().out,
 			('Moved', str(video_dest)),
 			('Moved', str(srt_dest)),
-			('Moved', str(ass_dest)),
+			('Moved', str(season / 'S01E01 - Pilot.eng.ass')),
 			('Done', '3 moved, 0 skipped, 0 failed'),
 		)
 

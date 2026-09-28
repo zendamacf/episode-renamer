@@ -1,5 +1,7 @@
 {
     "MOVIEDB_KEY": "XXXXXXXXXXXXXXXXXXX",
     "HOME": "/home/user/to_sort/",
-    "MOVED": "/home/user/to_sort/done/"
+    "MOVED": "/home/user/to_sort/done/",
+    "SUBTITLE_LANG": "en",
+    "RECURSIVE_SCAN": false
 }

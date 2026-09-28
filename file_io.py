@@ -20,8 +20,8 @@ class FileIOException(Exception):
 REQUIRED_CONFIG_KEYS = ('MOVIEDB_KEY', 'HOME', 'MOVED')
 VIDEO_EXTENSIONS = frozenset({'mp4', 'flv', 'avi', 'mkv', 'm4v'})
 SUBTITLE_EXTENSIONS = frozenset({'srt', 'ass', 'ssa', 'vtt', 'sub'})
-# Language tag written on renamed subtitle files (e.g. S01E01 - Pilot.en.srt).
-SUBTITLE_LANG = 'en'
+# Default language tag when the source subtitle has no language in its name.
+DEFAULT_SUBTITLE_LANG = 'en'
 
 
 def _normalize_directory(path: str) -> str:
@@ -61,18 +61,45 @@ def read_config(filename: str) -> dict:
 	return config
 
 
-def find_files(directory) -> list:
+def _append_video_file(
+	found: list,
+	directory: str,
+	rel_path: str,
+	filename: str,
+) -> None:
+	if not is_video_file(filename):
+		return
+	try:
+		parsed = parse_filename(filename)
+	except FileIOException as e:
+		log.error(f'{rel_path}: {repr(e)}', prefix='Error')
+		return
+	parsed['rel_path'] = rel_path
+	found.append(parsed)
+
+
+def find_files(directory: str, *, recursive: bool = False) -> list:
 	"""
-	Gets a list of video files in a given directory
+	Gets a list of video files in a given directory.
+
+	When ``recursive`` is True, scans nested folders under ``directory`` and sets
+	``rel_path`` on each entry (relative to ``directory``).
 	"""
 	log.info(directory, prefix='Checking')
-	found = []
-	for filename in sorted(os.listdir(directory), key=str.lower):
-		if os.path.isfile(os.path.join(directory, filename)) and is_video_file(filename):
-			try:
-				found.append(parse_filename(filename))
-			except FileIOException as e:
-				log.error(f'{filename}: {repr(e)}', prefix='Error')
+	found: list = []
+	if recursive:
+		for root, dirnames, filenames in os.walk(directory):
+			dirnames.sort(key=str.lower)
+			for filename in sorted(filenames, key=str.lower):
+				abs_path = os.path.join(root, filename)
+				if not os.path.isfile(abs_path):
+					continue
+				rel_path = os.path.relpath(abs_path, directory)
+				_append_video_file(found, directory, rel_path, filename)
+	else:
+		for filename in sorted(os.listdir(directory), key=str.lower):
+			if os.path.isfile(os.path.join(directory, filename)):
+				_append_video_file(found, directory, filename, filename)
 	return found
 
 
@@ -114,9 +141,15 @@ def find_subtitle_companions(directory: str, video_filename: str) -> list[dict[s
 		rest = name[len(prefix) :]
 		parts = rest.split('.')
 		if len(parts) == 1 and parts[0].lower() in SUBTITLE_EXTENSIONS:
-			companions.append({'filename': name, 'extension': parts[0].lower()})
+			companions.append({'filename': name, 'extension': parts[0].lower(), 'lang': None})
 		elif len(parts) == 2 and parts[0] and parts[1].lower() in SUBTITLE_EXTENSIONS:
-			companions.append({'filename': name, 'extension': parts[1].lower()})
+			companions.append(
+				{
+					'filename': name,
+					'extension': parts[1].lower(),
+					'lang': parts[0].lower(),
+				}
+			)
 	return companions
 
 
@@ -222,13 +255,14 @@ def get_subtitle_filename(
 	episode: int,
 	episodename: str,
 	extension: str,
+	lang: str = DEFAULT_SUBTITLE_LANG,
 ) -> str:
 	"""
-	Returns the new subtitle filename (``SxxExx - Title.en.ext``).
+	Returns the new subtitle filename (``SxxExx - Title.<lang>.ext``).
 	"""
 	season_str = f'{season:02d}'
 	episode_str = f'{episode:02d}'
-	new_filename = f'S{season_str}E{episode_str} - {episodename}.{SUBTITLE_LANG}.{extension}'
+	new_filename = f'S{season_str}E{episode_str} - {episodename}.{lang}.{extension}'
 	log.info(filename, prefix='Current')
 	log.info(new_filename, prefix='New')
 	return winsafe_filename(new_filename)

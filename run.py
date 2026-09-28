@@ -15,6 +15,16 @@ parser.add_argument(
 	action='store_true',
 	help='Instead of renaming the files, just display what changes would be made.',
 )
+parser.add_argument(
+	'--quiet',
+	action='store_true',
+	help='Print errors and final summary only (for scripts and cron).',
+)
+parser.add_argument(
+	'--recursive',
+	action='store_true',
+	help='Scan nested folders under HOME (overrides config RECURSIVE_SCAN).',
+)
 mode = parser.add_mutually_exclusive_group()
 mode.add_argument(
 	'--undo',
@@ -56,7 +66,24 @@ def _load_config() -> dict | None:
 	if env_key:
 		config['MOVIEDB_KEY'] = env_key
 		log.info('MOVIEDB_KEY from environment', prefix='Using')
+
+	env_lang = os.environ.get('SUBTITLE_LANG')
+	if env_lang:
+		config['SUBTITLE_LANG'] = env_lang
+	elif not config.get('SUBTITLE_LANG'):
+		config['SUBTITLE_LANG'] = io.DEFAULT_SUBTITLE_LANG
 	return config
+
+
+def _source_directory(home: str, rel_path: str) -> str:
+	parent = os.path.dirname(rel_path)
+	if not parent:
+		return home
+	return os.path.join(home, parent)
+
+
+def _video_basename(rel_path: str) -> str:
+	return os.path.basename(rel_path)
 
 
 def _series_label(series: dict) -> str:
@@ -144,7 +171,11 @@ def _process_file(
 	new_filename = io.get_filename(
 		f['filename'], f['season'], f['episode'], episodename, f['extension']
 	)
-	companions = io.find_subtitle_companions(config['HOME'], f['filename'])
+	video_rel = f['rel_path']
+	source_dir = _source_directory(config['HOME'], video_rel)
+	video_name = _video_basename(video_rel)
+	default_sub_lang = config['SUBTITLE_LANG']
+	companions = io.find_subtitle_companions(source_dir, video_name)
 	subtitle_plans = [
 		(
 			sub['filename'],
@@ -154,6 +185,7 @@ def _process_file(
 				f['episode'],
 				episodename,
 				sub['extension'],
+				lang=sub.get('lang') or default_sub_lang,
 			),
 		)
 		for sub in companions
@@ -161,7 +193,7 @@ def _process_file(
 
 	if dryrun:
 		log.warn(
-			f'{f["filename"]} -> {new_filename}',
+			f'{video_rel} -> {new_filename}',
 			prefix='Dry-run',
 		)
 		for sub_name, sub_new in subtitle_plans:
@@ -172,10 +204,10 @@ def _process_file(
 		return 'skipped'
 
 	moves: list[dict] = []
-	src = os.path.join(config['HOME'], f['filename'])
+	src = os.path.join(config['HOME'], video_rel)
 	dest = io.rename_and_move(
-		config['HOME'],
-		f['filename'],
+		source_dir,
+		video_name,
 		config['MOVED'],
 		new_filename,
 		chosen['name'],
@@ -186,9 +218,9 @@ def _process_file(
 
 	for sub_name, sub_new in subtitle_plans:
 		try:
-			sub_src = os.path.join(config['HOME'], sub_name)
+			sub_src = os.path.join(source_dir, sub_name)
 			sub_dest = io.rename_and_move(
-				config['HOME'],
+				source_dir,
 				sub_name,
 				config['MOVED'],
 				sub_new,
@@ -335,13 +367,10 @@ def undo_batches(n: int, dryrun: bool) -> None:
 			return
 
 	summary = f'{restored} restored, {failed} failed'
-	if failed:
-		log.warn(summary, prefix='Undone')
-	else:
-		log.info(summary, prefix='Undone')
+	log.summary(summary, prefix='Undone', tone='warn' if failed else 'info')
 
 
-def main(dryrun: bool) -> None:
+def main(dryrun: bool, recursive: bool = False) -> None:
 	"""
 	Main rename function
 	"""
@@ -353,7 +382,8 @@ def main(dryrun: bool) -> None:
 	if config is None:
 		return
 
-	found = io.find_files(config['HOME'])
+	scan_recursive = recursive or bool(config.get('RECURSIVE_SCAN'))
+	found = io.find_files(config['HOME'], recursive=scan_recursive)
 	if len(found) == 0:
 		log.warn('No files found', prefix='Skip')
 		return
@@ -370,7 +400,7 @@ def main(dryrun: bool) -> None:
 		try:
 			result = _process_file(f, config, matches, dryrun)
 		except (moviedb.MovieDBException, io.FileIOException, OSError) as e:
-			log.error(f'{f["filename"]}: {e}', prefix='Failed')
+			log.error(f'{f["rel_path"]}: {e}', prefix='Failed')
 			failed += 1
 			continue
 
@@ -387,17 +417,15 @@ def main(dryrun: bool) -> None:
 			log.error(str(e), prefix='History')
 
 	summary = f'{moved} moved, {skipped} skipped, {failed} failed'
-	if failed:
-		log.warn(summary, prefix='Done')
-	else:
-		log.info(summary, prefix='Done')
+	log.summary(summary, prefix='Done', tone='warn' if failed else 'info')
 
 
 if __name__ == '__main__':
 	args = parser.parse_args()
+	log.set_quiet(args.quiet)
 	if args.history:
 		show_history()
 	elif args.undo is not None:
 		undo_batches(args.undo, args.dryrun)
 	else:
-		main(args.dryrun)
+		main(args.dryrun, recursive=args.recursive)

@@ -177,9 +177,9 @@ class TestFindSubtitleCompanions:
 		found = io.find_subtitle_companions(str(tmp_path), video)
 
 		assert found == [
-			{'filename': 'The Office S01E01.ass', 'extension': 'ass'},
-			{'filename': 'The Office S01E01.en.srt', 'extension': 'srt'},
-			{'filename': 'The Office S01E01.srt', 'extension': 'srt'},
+			{'filename': 'The Office S01E01.ass', 'extension': 'ass', 'lang': None},
+			{'filename': 'The Office S01E01.en.srt', 'extension': 'srt', 'lang': 'en'},
+			{'filename': 'The Office S01E01.srt', 'extension': 'srt', 'lang': None},
 		]
 
 	def test_returns_empty_when_no_companions(self, tmp_path):
@@ -197,7 +197,7 @@ class TestFindSubtitleCompanions:
 
 		found = io.find_subtitle_companions(str(tmp_path), video)
 
-		assert found == [{'filename': 'The Office S01E01.srt', 'extension': 'srt'}]
+		assert found == [{'filename': 'The Office S01E01.srt', 'extension': 'srt', 'lang': None}]
 
 
 class TestParseFilename:
@@ -328,6 +328,10 @@ class TestGetSubtitleFilename:
 		result = io.get_subtitle_filename('orig.srt', 1, 1, 'Pilot', 'srt')
 		assert result == 'S01E01 - Pilot.en.srt'
 
+	def test_uses_explicit_language_tag(self):
+		result = io.get_subtitle_filename('orig.fr.srt', 1, 1, 'Pilot', 'srt', lang='fr')
+		assert result == 'S01E01 - Pilot.fr.srt'
+
 	def test_preserves_subtitle_extension(self):
 		result = io.get_subtitle_filename('orig.ass', 2, 3, 'Title', 'ass')
 		assert result == 'S02E03 - Title.en.ass'
@@ -366,6 +370,35 @@ class TestFindFiles:
 		found = io.find_files(str(tmp_path))
 
 		assert len(found) == 1
+
+	def test_sets_rel_path_for_top_level_files(self, tmp_path):
+		filename = PARSEABLE_FILENAMES['s01e01']
+		(tmp_path / filename).write_text('video')
+
+		found = io.find_files(str(tmp_path))
+
+		assert found[0]['rel_path'] == filename
+
+	def test_recursive_finds_nested_videos(self, tmp_path):
+		nested = tmp_path / 'downloads'
+		nested.mkdir()
+		filename = PARSEABLE_FILENAMES['s01e01']
+		(nested / filename).write_text('video')
+		(tmp_path / 'readme.txt').write_text('notes')
+
+		found = io.find_files(str(tmp_path), recursive=True)
+
+		assert len(found) == 1
+		assert found[0]['rel_path'] == f'downloads/{filename}'
+
+	def test_non_recursive_skips_nested_videos(self, tmp_path):
+		nested = tmp_path / 'downloads'
+		nested.mkdir()
+		(nested / PARSEABLE_FILENAMES['s01e01']).write_text('video')
+
+		found = io.find_files(str(tmp_path), recursive=False)
+
+		assert found == []
 
 
 class TestPromptUser:
