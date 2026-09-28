@@ -11,6 +11,10 @@ import run
 import series_cache
 
 
+def tmdb_page(results, total_pages=1, page=1):
+	return {'results': results, 'page': page, 'total_pages': total_pages}
+
+
 class TestSeriesLabel:
 	def test_includes_year_when_present(self):
 		assert run._series_label(OFFICE) == 'The Office (2005)'
@@ -97,14 +101,14 @@ class TestLoadConfig:
 
 class TestQuietAndRecursive:
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_quiet_rename_prints_summary_only(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 		log.set_quiet(True)
 		try:
@@ -119,9 +123,9 @@ class TestQuietAndRecursive:
 		assert (moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4').exists()
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_config_recursive_scan_finds_nested_video(
-		self, mock_get_series, mock_get_episode, media_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, capsys
 	):
 		home, moved = media_dirs
 		config = {
@@ -135,7 +139,7 @@ class TestQuietAndRecursive:
 		nested.mkdir()
 		filename = 'The Office S01E01.mp4'
 		(nested / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with patch('run.io.read_config', return_value=config):
@@ -144,16 +148,16 @@ class TestQuietAndRecursive:
 		assert (moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4').exists()
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_recursive_scan_finds_nested_video(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		nested = home / 'inbox'
 		nested.mkdir()
 		filename = 'The Office S01E01.mp4'
 		(nested / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -166,16 +170,16 @@ class TestQuietAndRecursive:
 		assert data['batches'][0]['moves'][0]['src'] == str(nested / filename)
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_recursive_undo_restores_nested_source(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		nested = home / 'inbox'
 		nested.mkdir()
 		filename = 'The Office S01E01.mp4'
 		(nested / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -191,16 +195,16 @@ class TestQuietAndRecursive:
 		assert not dest.exists()
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_french_subtitle_tag_preserved(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
 		sub = 'The Office S01E01.fr.srt'
 		(home / filename).write_text('video')
 		(home / sub).write_text('sub')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -212,10 +216,10 @@ class TestQuietAndRecursive:
 
 class TestPersistentSeriesCache:
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_second_run_uses_saved_selection_without_prompt(
 		self,
-		mock_get_series,
+		mock_search_series_page,
 		mock_get_episode,
 		media_dirs,
 		config_for_dirs,
@@ -225,7 +229,7 @@ class TestPersistentSeriesCache:
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_search_series_page.return_value = tmdb_page([OFFICE, OFFICE_UK])
 		mock_get_episode.return_value = 'Pilot'
 		monkeypatch.setattr('builtins.input', lambda _: '1')
 
@@ -233,10 +237,10 @@ class TestPersistentSeriesCache:
 			run.main(dryrun=False)
 
 		assert (moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4').exists()
-		mock_get_series.reset_mock()
+		mock_search_series_page.reset_mock()
 		mock_get_episode.reset_mock()
 		(home / 'The Office S01E02.mp4').write_text('video')
-		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_search_series_page.return_value = tmdb_page([OFFICE, OFFICE_UK])
 		mock_get_episode.return_value = 'Diversity Day'
 		monkeypatch.setattr(
 			'builtins.input',
@@ -246,15 +250,15 @@ class TestPersistentSeriesCache:
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.main(dryrun=False)
 
-		mock_get_series.assert_called_once()
+		mock_search_series_page.assert_called_once()
 		assert (moved / 'The Office (2005)' / 'Season 1' / 'S01E02 - Diversity Day.mp4').exists()
 		assert_logged(capsys.readouterr().out, ('Cached', 'The Office (2005) for The Office'))
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_stale_cache_entry_reprompts(
 		self,
-		mock_get_series,
+		mock_search_series_page,
 		mock_get_episode,
 		media_dirs,
 		config_for_dirs,
@@ -281,7 +285,7 @@ class TestPersistentSeriesCache:
 				}
 			)
 		)
-		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_search_series_page.return_value = tmdb_page([OFFICE, OFFICE_UK])
 		mock_get_episode.return_value = 'Pilot'
 		monkeypatch.setattr('builtins.input', lambda _: '1')
 
@@ -292,9 +296,9 @@ class TestPersistentSeriesCache:
 		loaded = sc.load_cache()
 		assert loaded[('The Office', None)]['id'] == OFFICE['id']
 
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_cached_entry_skipped_when_tmdb_returns_no_results(
-		self, mock_get_series, media_dirs, config_for_dirs, isolate_series_cache, capsys
+		self, mock_search_series_page, media_dirs, config_for_dirs, isolate_series_cache, capsys
 	):
 		import series_cache as sc
 
@@ -308,7 +312,7 @@ class TestPersistentSeriesCache:
 				}
 			)
 		)
-		mock_get_series.return_value = []
+		mock_search_series_page.return_value = tmdb_page([])
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.main(dryrun=False)
@@ -316,10 +320,10 @@ class TestPersistentSeriesCache:
 		assert_logged(capsys.readouterr().out, ('No match', 'The Office'))
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_corrupt_series_cache_on_load_continues_rename(
 		self,
-		mock_get_series,
+		mock_search_series_page,
 		mock_get_episode,
 		media_dirs,
 		config_for_dirs,
@@ -329,7 +333,7 @@ class TestPersistentSeriesCache:
 		home, moved = media_dirs
 		(home / 'The Office S01E01.mp4').write_text('video')
 		isolate_series_cache.write_text('not-json')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -340,10 +344,10 @@ class TestPersistentSeriesCache:
 		assert (moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4').exists()
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_save_series_cache_failure_is_logged(
 		self,
-		mock_get_series,
+		mock_search_series_page,
 		mock_get_episode,
 		media_dirs,
 		config_for_dirs,
@@ -351,7 +355,7 @@ class TestPersistentSeriesCache:
 	):
 		home, _ = media_dirs
 		(home / 'The Office S01E01.mp4').write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with (
@@ -370,6 +374,36 @@ class TestPersistentSeriesCache:
 		)
 
 
+class TestTmdbPagination:
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.search_series_page')
+	def test_prompt_next_page_selects_from_second_page(
+		self,
+		mock_search_series_page,
+		mock_get_episode,
+		media_dirs,
+		config_for_dirs,
+		monkeypatch,
+	):
+		home, moved = media_dirs
+		(home / 'Show S01E01.mp4').write_text('video')
+		page_two_show = {'id': 42, 'name': 'Show', 'year': 2010, 'country': ['US']}
+		mock_search_series_page.side_effect = [
+			tmdb_page([OFFICE, OFFICE_UK], total_pages=2),
+			tmdb_page([page_two_show], total_pages=2, page=2),
+		]
+		mock_get_episode.return_value = 'Pilot'
+		choices = iter(['n', '3'])
+		monkeypatch.setattr('builtins.input', lambda _: next(choices))
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		# After "n", only page-two result is listed; default empty input picks first.
+		assert (moved / 'Show (2010)' / 'Season 1' / 'S01E01 - Pilot.mp4').exists()
+		assert mock_search_series_page.call_count == 2
+
+
 class TestMain:
 	def test_no_files_found(self, config_for_dirs, capsys):
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -377,31 +411,31 @@ class TestMain:
 
 		assert_logged(capsys.readouterr().out, ('Skip', 'No files found'))
 
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_no_series_match_leaves_file(
-		self, mock_get_series, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, media_dirs, config_for_dirs, capsys
 	):
 		home, _ = media_dirs
 		filename = 'The Office S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.return_value = []
+		mock_search_series_page.return_value = tmdb_page([])
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.main(dryrun=False)
 
 		assert (home / filename).exists()
 		assert_logged(capsys.readouterr().out, ('No match', 'The Office'))
-		mock_get_series.assert_called_once_with('The Office', 'test-api-key')
+		mock_search_series_page.assert_called_once_with('The Office', 'test-api-key', 1)
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_dryrun_does_not_move_file(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, _ = media_dirs
 		filename = 'The Office S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -416,21 +450,27 @@ class TestMain:
 		)
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_env_moviedb_key_overrides_config(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, monkeypatch, capsys
+		self,
+		mock_search_series_page,
+		mock_get_episode,
+		media_dirs,
+		config_for_dirs,
+		monkeypatch,
+		capsys,
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 		monkeypatch.setenv('MOVIEDB_KEY', 'env-api-key')
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.main(dryrun=False)
 
-		mock_get_series.assert_called_once_with('The Office', 'env-api-key')
+		mock_search_series_page.assert_called_once_with('The Office', 'env-api-key', 1)
 		mock_get_episode.assert_called_once_with(2316, 1, 1, 'env-api-key')
 		expected = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
 		assert expected.exists()
@@ -440,14 +480,14 @@ class TestMain:
 		)
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_rename_moves_file_to_show_folder(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -464,9 +504,9 @@ class TestMain:
 		)
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_moves_subtitle_companions_with_en_suffix(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
@@ -475,7 +515,7 @@ class TestMain:
 		(home / filename).write_text('video')
 		(home / sub_plain).write_text('srt')
 		(home / sub_lang).write_text('ass')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -500,16 +540,16 @@ class TestMain:
 		)
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_dryrun_previews_subtitle_companions(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, _ = media_dirs
 		filename = 'The Office S01E01.mp4'
 		sub = 'The Office S01E01.srt'
 		(home / filename).write_text('video')
 		(home / sub).write_text('srt')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -525,10 +565,10 @@ class TestMain:
 		)
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_subtitle_collision_still_records_video_move(
 		self,
-		mock_get_series,
+		mock_search_series_page,
 		mock_get_episode,
 		media_dirs,
 		config_for_dirs,
@@ -540,7 +580,7 @@ class TestMain:
 		(home / filename).write_text('video')
 		(home / 'The Office S01E01.srt').write_text('one')
 		(home / 'The Office S01E01.en.srt').write_text('two')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -563,9 +603,9 @@ class TestMain:
 		assert 'already Exists' in out
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_duplicate_destination_logs_and_continues(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
@@ -574,7 +614,7 @@ class TestMain:
 		dest_dir.mkdir(parents=True)
 		dest_file = dest_dir / 'S01E01 - Pilot.mp4'
 		dest_file.write_text('existing')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -588,20 +628,20 @@ class TestMain:
 		)
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_cached_series_match_calls_get_series_once(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		(home / 'The Office S01E01.mp4').write_text('video')
 		(home / 'The Office S01E02.mp4').write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.side_effect = ['Pilot', 'Diversity Day']
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.main(dryrun=False)
 
-		mock_get_series.assert_called_once()
+		mock_search_series_page.assert_called_once()
 		assert_logged(
 			capsys.readouterr().out,
 			('Cached', 'The Office (2005) for The Office'),
@@ -611,14 +651,14 @@ class TestMain:
 		assert (season_dir / 'S01E02 - Diversity Day.mp4').exists()
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_multi_match_prompt_selects_first(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, monkeypatch
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, monkeypatch
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_search_series_page.return_value = tmdb_page([OFFICE, OFFICE_UK])
 		mock_get_episode.return_value = 'Pilot'
 		monkeypatch.setattr('builtins.input', lambda _: '')
 
@@ -629,14 +669,14 @@ class TestMain:
 		assert expected.exists()
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_multi_match_prompt_selects_explicit_choice(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, monkeypatch
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, monkeypatch
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_search_series_page.return_value = tmdb_page([OFFICE, OFFICE_UK])
 		mock_get_episode.return_value = 'Pilot'
 		monkeypatch.setattr('builtins.input', lambda _: '2')
 
@@ -646,14 +686,14 @@ class TestMain:
 		expected = moved / 'The Office (2001)' / 'Season 1' / 'S01E01 - Pilot.mp4'
 		assert expected.exists()
 
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_multi_match_prompt_ignore_skips_file(
-		self, mock_get_series, media_dirs, config_for_dirs, monkeypatch, capsys
+		self, mock_search_series_page, media_dirs, config_for_dirs, monkeypatch, capsys
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_search_series_page.return_value = tmdb_page([OFFICE, OFFICE_UK])
 		monkeypatch.setattr('builtins.input', lambda _: 'i')
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -664,14 +704,20 @@ class TestMain:
 		assert_logged(capsys.readouterr().out, ('Ignoring', 'The Office'))
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_filename_year_auto_selects_matching_series(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, monkeypatch, capsys
+		self,
+		mock_search_series_page,
+		mock_get_episode,
+		media_dirs,
+		config_for_dirs,
+		monkeypatch,
+		capsys,
 	):
 		home, moved = media_dirs
 		filename = 'The Office 2005 S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_search_series_page.return_value = tmdb_page([OFFICE, OFFICE_UK])
 		mock_get_episode.return_value = 'Pilot'
 		monkeypatch.setattr(
 			'builtins.input',
@@ -683,16 +729,22 @@ class TestMain:
 
 		expected = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
 		assert expected.exists()
-		mock_get_series.assert_called_once_with('The Office', 'test-api-key')
+		mock_search_series_page.assert_called_once_with('The Office', 'test-api-key', 1)
 		assert_logged(
 			capsys.readouterr().out,
 			('Matched', 'The Office (2005) for The Office'),
 		)
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_filename_year_still_prompts_when_multiple_same_year(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, monkeypatch, capsys
+		self,
+		mock_search_series_page,
+		mock_get_episode,
+		media_dirs,
+		config_for_dirs,
+		monkeypatch,
+		capsys,
 	):
 		home, moved = media_dirs
 		filename = 'Survivor 2000 S01E01.mp4'
@@ -700,7 +752,7 @@ class TestMain:
 		survivor_us = {'id': 1, 'name': 'Survivor', 'year': 2000, 'country': ['US']}
 		survivor_au = {'id': 2, 'name': 'Survivor', 'year': 2000, 'country': ['AU']}
 		survivor_other = {'id': 3, 'name': 'Survivor', 'year': 2006, 'country': ['ZA']}
-		mock_get_series.return_value = [survivor_us, survivor_au, survivor_other]
+		mock_search_series_page.return_value = tmdb_page([survivor_us, survivor_au, survivor_other])
 		mock_get_episode.return_value = 'The Marooning'
 		monkeypatch.setattr('builtins.input', lambda _: '2')
 
@@ -716,14 +768,20 @@ class TestMain:
 		assert_logged(out, ('Selected', 'Survivor (2000) for Survivor'))
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_filename_year_falls_back_when_no_year_match(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, monkeypatch, capsys
+		self,
+		mock_search_series_page,
+		mock_get_episode,
+		media_dirs,
+		config_for_dirs,
+		monkeypatch,
+		capsys,
 	):
 		home, moved = media_dirs
 		filename = 'The Office 1999 S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_search_series_page.return_value = tmdb_page([OFFICE, OFFICE_UK])
 		mock_get_episode.return_value = 'Pilot'
 		monkeypatch.setattr('builtins.input', lambda _: '1')
 
@@ -739,14 +797,14 @@ class TestMain:
 		)
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_episode_not_found_leaves_file(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, _ = media_dirs
 		filename = 'The Office S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = None
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -758,12 +816,14 @@ class TestMain:
 			('No episode', 'The Office S1E1'),
 		)
 
-	@patch('run.moviedb.get_series')
-	def test_moviedb_error_skips_file(self, mock_get_series, media_dirs, config_for_dirs, capsys):
+	@patch('run.moviedb.search_series_page')
+	def test_moviedb_error_skips_file(
+		self, mock_search_series_page, media_dirs, config_for_dirs, capsys
+	):
 		home, _ = media_dirs
 		filename = 'The Office S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.side_effect = moviedb.MovieDBException('API error')
+		mock_search_series_page.side_effect = moviedb.MovieDBException('API error')
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
 			run.main(dryrun=False)
@@ -776,18 +836,18 @@ class TestMain:
 		)
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_moviedb_error_continues_with_remaining_files(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		first = 'Bad Show S01E01.mp4'
 		second = 'The Office S01E01.mp4'
 		(home / first).write_text('video')
 		(home / second).write_text('video')
-		mock_get_series.side_effect = [
+		mock_search_series_page.side_effect = [
 			moviedb.MovieDBException('API error'),
-			[OFFICE],
+			tmdb_page([OFFICE]),
 		]
 		mock_get_episode.return_value = 'Pilot'
 
@@ -805,16 +865,16 @@ class TestMain:
 		)
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_oserror_skips_file_and_continues(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, moved = media_dirs
 		first = 'The Office S01E01.mp4'
 		second = 'The Office S01E02.mp4'
 		(home / first).write_text('video')
 		(home / second).write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.side_effect = ['Pilot', 'Diversity Day']
 
 		with (
@@ -840,14 +900,19 @@ class TestMain:
 
 class TestHistoryRecording:
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_rename_writes_history_batch(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, isolate_rename_history
+		self,
+		mock_search_series_page,
+		mock_get_episode,
+		media_dirs,
+		config_for_dirs,
+		isolate_rename_history,
 	):
 		home, moved = media_dirs
 		filename = 'The Office S01E01.mp4'
 		(home / filename).write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -863,13 +928,18 @@ class TestHistoryRecording:
 		)
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_dryrun_does_not_write_history(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, isolate_rename_history
+		self,
+		mock_search_series_page,
+		mock_get_episode,
+		media_dirs,
+		config_for_dirs,
+		isolate_rename_history,
 	):
 		home, _ = media_dirs
 		(home / 'The Office S01E01.mp4').write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -878,14 +948,14 @@ class TestHistoryRecording:
 		assert not isolate_rename_history.exists()
 
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_multi_file_run_is_one_batch(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs
 	):
 		home, _ = media_dirs
 		(home / 'The Office S01E01.mp4').write_text('video')
 		(home / 'The Office S01E02.mp4').write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.side_effect = ['Pilot', 'Diversity Day']
 
 		with patch('run.io.read_config', return_value=config_for_dirs):
@@ -1195,13 +1265,13 @@ class TestUndo:
 
 class TestHistoryRecordingErrors:
 	@patch('run.moviedb.get_episode')
-	@patch('run.moviedb.get_series')
+	@patch('run.moviedb.search_series_page')
 	def test_append_batch_failure_is_logged(
-		self, mock_get_series, mock_get_episode, media_dirs, config_for_dirs, capsys
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
 		home, _ = media_dirs
 		(home / 'The Office S01E01.mp4').write_text('video')
-		mock_get_series.return_value = [OFFICE]
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
 		mock_get_episode.return_value = 'Pilot'
 
 		with (

@@ -1,6 +1,7 @@
 import json
 import re
 import time
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -16,6 +17,18 @@ class MovieDBException(Exception):
 DEFAULT_TIMEOUT = 15
 MAX_RETRIES = 3
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+# Maximum TMDB search pages loaded per lookup (user-driven or cache validation).
+MAX_SEARCH_PAGES = 3
+
+
+@dataclass
+class SeriesSearch:
+	query: str
+	apikey: str
+	page: int = 0
+	total_pages: int = 1
+	results: list[dict[str, Any]] = field(default_factory=list)
+	_seen_ids: set[int] = field(default_factory=set, repr=False)
 
 
 def _retry_delay(response, attempt: int) -> float:
@@ -26,6 +39,16 @@ def _retry_delay(response, attempt: int) -> float:
 		except ValueError:
 			pass
 	return float(2**attempt)
+
+
+def _status_error_message(status_code: int) -> str:
+	if status_code in (401, 403):
+		return f'TMDB authentication failed ({status_code}). Check your API key.'
+	if status_code == 400:
+		return f'TMDB rejected the request ({status_code}).'
+	if status_code >= 500:
+		return f'TMDB server error ({status_code}).'
+	return f'TMDB request failed ({status_code}).'
 
 
 def _request(url: str, params: dict[str, str] | None = None) -> dict[str, Any]:
@@ -63,7 +86,7 @@ def _request(url: str, params: dict[str, str] | None = None) -> dict[str, Any]:
 			time.sleep(_retry_delay(response, attempt))
 			continue
 
-		raise MovieDBException(f'Unexpected response ({response.status_code}): {response.text}')
+		raise MovieDBException(_status_error_message(response.status_code))
 
 	raise MovieDBException(f'TMDB request failed after {MAX_RETRIES} retries: {last_error}')
 
@@ -87,14 +110,8 @@ def _extract_year(dat: str | None) -> int | None:
 		return None
 
 
-def get_series(query: str, apikey: str) -> list:
-	"""
-	Returns list of series in The Movie DB matching given query
-	"""
-	params = {'api_key': apikey, 'query': query}
-	response = _request('/search/tv', params=params)
-
-	found = []
+def _parse_search_results(response: dict[str, Any]) -> list[dict[str, Any]]:
+	found: list[dict[str, Any]] = []
 	for r in response.get('results', []):
 		if 'first_air_date' not in r:
 			log.warn(r['name'], prefix='Ignoring')
@@ -115,6 +132,86 @@ def get_series(query: str, apikey: str) -> list:
 	return found
 
 
+def search_series_page(query: str, apikey: str, page: int = 1) -> dict[str, Any]:
+	"""
+	Fetch one page of TMDB ``/search/tv`` results.
+	"""
+	response = _request(
+		'/search/tv',
+		params={'api_key': apikey, 'query': query, 'page': str(page)},
+	)
+	total_pages = int(response.get('total_pages') or 1)
+	return {
+		'results': _parse_search_results(response),
+		'page': page,
+		'total_pages': total_pages,
+	}
+
+
+def _load_page(session: SeriesSearch, page: int) -> None:
+	data = search_series_page(session.query, session.apikey, page)
+	session.page = page
+	session.total_pages = data['total_pages']
+	for item in data['results']:
+		if item['id'] in session._seen_ids:
+			continue
+		session._seen_ids.add(item['id'])
+		session.results.append(item)
+
+
+def begin_series_search(query: str, apikey: str) -> SeriesSearch:
+	"""
+	Start a series search with the first TMDB results page.
+	"""
+	session = SeriesSearch(query=query, apikey=apikey)
+	_load_page(session, 1)
+	return session
+
+
+def can_fetch_more(session: SeriesSearch) -> bool:
+	return session.page < session.total_pages and session.page < MAX_SEARCH_PAGES
+
+
+def fetch_next_page(session: SeriesSearch) -> bool:
+	"""
+	Load the next TMDB page into ``session`` (deduped by id). Returns False when capped or done.
+	"""
+	if not can_fetch_more(session):
+		if session.page < session.total_pages and session.page >= MAX_SEARCH_PAGES:
+			log.warn(
+				f'top {MAX_SEARCH_PAGES} result pages only (TMDB has {session.total_pages})',
+				prefix='TMDB',
+			)
+		return False
+	_load_page(session, session.page + 1)
+	if session.page < session.total_pages and session.page >= MAX_SEARCH_PAGES:
+		log.warn(
+			f'top {MAX_SEARCH_PAGES} result pages only (TMDB has {session.total_pages})',
+			prefix='TMDB',
+		)
+	return True
+
+
+def find_series_in_search(query: str, apikey: str, series_id: int) -> dict[str, Any] | None:
+	"""
+	Locate a series id in TMDB search results, loading additional pages up to the cap.
+	"""
+	session = begin_series_search(query, apikey)
+	while True:
+		for series in session.results:
+			if series['id'] == series_id:
+				return series
+		if not fetch_next_page(session):
+			return None
+
+
+def get_series(query: str, apikey: str) -> list:
+	"""
+	Returns the first page of TMDB series matches for a query.
+	"""
+	return search_series_page(query, apikey, page=1)['results']
+
+
 def get_episode(seriesid: int, season: int, episode: int, apikey: str) -> str | None:
 	"""
 	Gets episode information
@@ -124,3 +221,4 @@ def get_episode(seriesid: int, season: int, episode: int, apikey: str) -> str | 
 	)
 	if response:
 		return response.get('name')
+	return None

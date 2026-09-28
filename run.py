@@ -104,6 +104,22 @@ def _find_series_by_id(series_id: int, series_list: list) -> dict | None:
 	return None
 
 
+def _lookup_cached_series(name: str, apikey: str, series_id: int) -> tuple[dict | None, bool]:
+	"""
+	Return (series, had_results). Loads TMDB pages up to the search cap.
+	"""
+	session = moviedb.begin_series_search(name, apikey)
+	if not session.results:
+		return None, False
+	while True:
+		found = _find_series_by_id(series_id, session.results)
+		if found is not None:
+			return found, True
+		if not moviedb.fetch_next_page(session):
+			break
+	return None, True
+
+
 def _narrow_series_by_year(series_list: list, year: int | None) -> list:
 	"""
 	If a filename year is present, prefer TMDB results with that air year.
@@ -144,11 +160,14 @@ def _process_file(
 				prefix='Cached',
 			)
 		else:
-			series_list = moviedb.get_series(f['name'], config['MOVIEDB_KEY'])
-			if not series_list:
+			refreshed, had_results = _lookup_cached_series(
+				f['name'],
+				config['MOVIEDB_KEY'],
+				matches[cache_key]['id'],
+			)
+			if not had_results:
 				log.warn(f['name'], prefix='No match')
 				return 'skipped'
-			refreshed = _find_series_by_id(matches[cache_key]['id'], series_list)
 			if refreshed is not None:
 				matches[cache_key] = refreshed
 				session_resolved.add(cache_key)
@@ -165,12 +184,12 @@ def _process_file(
 				del matches[cache_key]
 
 	if chosen is None:
-		series_list = moviedb.get_series(f['name'], config['MOVIEDB_KEY'])
-		if not series_list:
+		session = moviedb.begin_series_search(f['name'], config['MOVIEDB_KEY'])
+		if not session.results:
 			log.warn(f['name'], prefix='No match')
 			return 'skipped'
 
-		series_list = _narrow_series_by_year(series_list, f.get('year'))
+		series_list = _narrow_series_by_year(session.results, f.get('year'))
 
 		if len(series_list) == 1:
 			chosen = series_list[0]
@@ -179,7 +198,17 @@ def _process_file(
 				prefix='Matched',
 			)
 		else:
-			chosen = io.prompt_user(f['name'], series_list)
+
+			def _more_results() -> list:
+				moviedb.fetch_next_page(session)
+				return _narrow_series_by_year(session.results, f.get('year'))
+
+			chosen = io.prompt_user(
+				f['name'],
+				series_list,
+				can_fetch_more=lambda: moviedb.can_fetch_more(session),
+				fetch_more=_more_results,
+			)
 			if chosen is None:
 				log.warn(f['name'], prefix='Ignoring')
 				return 'skipped'
