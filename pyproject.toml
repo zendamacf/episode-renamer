@@ -3,7 +3,7 @@ name = "episode-renamer"
 version = "0.2.1"
 description = "Rename TV episode files using The Movie Database"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 
 [tool.towncrier]
 name = "episode-renamer"
@@ -35,7 +35,7 @@ name = "Misc"
 showcontent = false
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py312"
 line-length = 100
 exclude = ["*/.venv/*"]
 
@@ -51,7 +51,7 @@ indent-style = "tab"
 quote-style = "single"
 
 [tool.basedpyright]
-pythonVersion = "3.14"
+pythonVersion = "3.12"
 typeCheckingMode = "standard"
 include = ["."]
 exclude = ["**/__pycache__", ".venv", ".git"]

@@ -7,7 +7,7 @@ Rename TV episode video files using metadata from [The Movie Database (TMDB)](ht
 
 ## Requirements
 
-- Python ([version set here](./.python-version))
+- Python 3.12+ ([development version](./.python-version))
 - A TMDB API key ([create one here](https://www.themoviedb.org/settings/api))
 - Network access to `api.themoviedb.org`
 
