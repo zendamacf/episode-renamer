@@ -1,6 +1,6 @@
 # Release
 
-Episode Renamer uses [Towncrier](https://towncrier.readthedocs.io/) for changelog management and a tag-based GitHub Actions workflow for publishing releases.
+Episode Renamer uses [Towncrier](https://towncrier.readthedocs.io/) for changelog management and a tag-based GitHub Actions workflow for publishing releases. Day-to-day contributor setup and `make ci` are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## How releases work
 
