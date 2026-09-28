@@ -18,6 +18,10 @@ class FileIOException(Exception):
 
 
 REQUIRED_CONFIG_KEYS = ('MOVIEDB_KEY', 'HOME', 'MOVED')
+VIDEO_EXTENSIONS = frozenset({'mp4', 'flv', 'avi', 'mkv', 'm4v'})
+SUBTITLE_EXTENSIONS = frozenset({'srt', 'ass', 'ssa', 'vtt', 'sub'})
+# Language tag written on renamed subtitle files (e.g. S01E01 - Pilot.en.srt).
+SUBTITLE_LANG = 'en'
 
 
 def _normalize_directory(path: str) -> str:
@@ -38,10 +42,6 @@ def _validate_home_moved(home: str, moved: str) -> None:
 		raise FileIOException(
 			f'HOME and MOVED must not nest inside each other (HOME={home_norm}, MOVED={moved_norm}).'
 		)
-VIDEO_EXTENSIONS = frozenset({'mp4', 'flv', 'avi', 'mkv', 'm4v'})
-SUBTITLE_EXTENSIONS = frozenset({'srt', 'ass', 'ssa', 'vtt', 'sub'})
-# Language tag written on renamed subtitle files (e.g. S01E01 - Pilot.en.srt).
-SUBTITLE_LANG = 'en'
 
 
 def read_config(filename: str) -> dict:
