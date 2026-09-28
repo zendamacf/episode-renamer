@@ -73,7 +73,7 @@ class TestRequest:
 	def test_server_error_raises_after_retries(self, mock_get, mock_sleep, mock_http_response):
 		mock_get.return_value = mock_http_response(500, text='Internal Server Error')
 
-		with pytest.raises(moviedb.MovieDBException, match='Unexpected response'):
+		with pytest.raises(moviedb.MovieDBException, match='TMDB server error'):
 			moviedb._request('/search/tv')
 
 		assert mock_get.call_count == moviedb.MAX_RETRIES
@@ -125,12 +125,45 @@ class TestRequest:
 
 	@patch('moviedb.requests.get')
 	def test_client_error_raises_without_retry(self, mock_get, mock_http_response):
-		mock_get.return_value = mock_http_response(401, text='Unauthorized')
+		secret = 'super-secret-api-key'
+		mock_get.return_value = mock_http_response(
+			401,
+			text=f'Invalid API key: {secret}',
+		)
 
-		with pytest.raises(moviedb.MovieDBException, match='Unexpected response'):
+		with pytest.raises(
+			moviedb.MovieDBException, match='authentication failed \\(401\\)'
+		) as exc:
+			moviedb._request('/search/tv', params={'api_key': secret})
+
+		mock_get.assert_called_once()
+		assert secret not in str(exc.value)
+
+	@patch('moviedb.requests.get')
+	def test_bad_request_error_is_sanitized(self, mock_get, mock_http_response):
+		mock_get.return_value = mock_http_response(400, text='{"errors":["bad"]}')
+
+		with pytest.raises(moviedb.MovieDBException, match='rejected the request'):
+			moviedb._request('/search/tv')
+
+	@patch('moviedb.requests.get')
+	def test_unknown_client_error_is_generic(self, mock_get, mock_http_response):
+		mock_get.return_value = mock_http_response(418, text='teapot')
+
+		with pytest.raises(moviedb.MovieDBException, match='request failed \\(418\\)'):
+			moviedb._request('/search/tv')
+
+	@patch('moviedb.requests.get')
+	def test_forbidden_error_is_sanitized(self, mock_get, mock_http_response):
+		mock_get.return_value = mock_http_response(403, text='{"status_code":403,"body":"secret"}')
+
+		with pytest.raises(
+			moviedb.MovieDBException, match='authentication failed \\(403\\)'
+		) as exc:
 			moviedb._request('/search/tv')
 
 		mock_get.assert_called_once()
+		assert 'secret' not in str(exc.value)
 
 
 class TestGetSeries:
@@ -155,8 +188,66 @@ class TestGetSeries:
 		}
 		mock_request.assert_called_once_with(
 			'/search/tv',
-			params={'api_key': 'test-key', 'query': 'The Office'},
+			params={'api_key': 'test-key', 'query': 'The Office', 'page': '1'},
 		)
+
+	@patch('moviedb._request')
+	def test_search_series_page_requests_specific_page(self, mock_request):
+		mock_request.return_value = {
+			'results': [],
+			'total_pages': 5,
+			'page': 2,
+		}
+
+		data = moviedb.search_series_page('Show', 'test-key', page=2)
+
+		assert data['page'] == 2
+		assert data['total_pages'] == 5
+		mock_request.assert_called_once_with(
+			'/search/tv',
+			params={'api_key': 'test-key', 'query': 'Show', 'page': '2'},
+		)
+
+	@patch('moviedb.search_series_page')
+	def test_fetch_next_page_merges_and_dedupes(self, mock_search_page):
+		mock_search_page.side_effect = [
+			{
+				'results': [{'id': 1, 'name': 'A', 'year': 2000, 'country': None}],
+				'page': 1,
+				'total_pages': 2,
+			},
+			{
+				'results': [
+					{'id': 1, 'name': 'A', 'year': 2000, 'country': None},
+					{'id': 2, 'name': 'B', 'year': 2001, 'country': None},
+				],
+				'page': 2,
+				'total_pages': 2,
+			},
+		]
+		session = moviedb.begin_series_search('Show', 'key')
+		assert len(session.results) == 1
+		assert moviedb.fetch_next_page(session) is True
+		assert [s['id'] for s in session.results] == [1, 2]
+
+	@patch('moviedb.search_series_page')
+	def test_find_series_in_search_loads_until_id_found(self, mock_search_page):
+		mock_search_page.side_effect = [
+			{
+				'results': [{'id': 1, 'name': 'A', 'year': 2000, 'country': None}],
+				'page': 1,
+				'total_pages': 2,
+			},
+			{
+				'results': [{'id': 2, 'name': 'B', 'year': 2001, 'country': None}],
+				'page': 2,
+				'total_pages': 2,
+			},
+		]
+		found = moviedb.find_series_in_search('Show', 'key', 2)
+		assert found is not None
+		assert found['id'] == 2
+		assert mock_search_page.call_count == 2
 
 	@patch('moviedb._request')
 	def test_skips_results_missing_airdate(self, mock_request, capsys):

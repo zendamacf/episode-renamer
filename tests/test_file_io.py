@@ -465,6 +465,22 @@ class TestPromptUser:
 		io.prompt_user('International Show', series)
 		assert '(1) International Show (2020) [US, CA]\n' in capsys.readouterr().out
 
+	def test_next_page_without_handler_raises(self, series_list, monkeypatch):
+		monkeypatch.setattr('builtins.input', lambda _: 'n')
+		with pytest.raises(io.FileIOException, match='Invalid input'):
+			io.prompt_user('The Office', series_list)
+
+	def test_next_page_refreshes_options(self, series_list, monkeypatch):
+		inputs = iter(['n', '2'])
+		monkeypatch.setattr('builtins.input', lambda _: next(inputs))
+		chosen = io.prompt_user(
+			'The Office',
+			[series_list[0]],
+			can_fetch_more=lambda: True,
+			fetch_more=lambda: series_list,
+		)
+		assert chosen == series_list[1]
+
 	def test_passes_styled_prompt_to_input(self, series_list, monkeypatch):
 		seen = {}
 

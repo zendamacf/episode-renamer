@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+from collections.abc import Callable
 from typing import Any, TypedDict
 
 import log
@@ -212,28 +213,43 @@ def _format_country(country: list[str] | None) -> str:
 	return f' [{", ".join(country)}]'
 
 
-def prompt_user(orig_name: str, series_list: list[dict[str, Any]]) -> dict[str, Any] | None:
+def prompt_user(
+	orig_name: str,
+	series_list: list[dict[str, Any]],
+	*,
+	can_fetch_more: Callable[[], bool] | None = None,
+	fetch_more: Callable[[], list[dict[str, Any]]] | None = None,
+) -> dict[str, Any] | None:
 	"""
-	Prompt user to select which show this episode is from
+	Prompt user to select which show this episode is from.
 	"""
-	for count, value in enumerate(series_list):
-		country = _format_country(value.get('country'))
-		if value['year'] is not None:
-			log.plain('({}) {} ({}){}'.format(count + 1, value['name'], value['year'], country))
-		else:
-			log.plain('({}) {}{}'.format(count + 1, value['name'], country))
-	choice = input(log.prompt(f'Select correct series for {orig_name} ("i" to ignore): '))
-	if choice == '':
-		return series_list[0]
-	if choice == 'i':
-		return None
-	try:
-		selection = int(choice)
-	except ValueError as exc:
-		raise FileIOException('Invalid input.') from exc
-	if selection < 1 or selection > len(series_list):
-		raise FileIOException('Invalid input.')
-	return series_list[selection - 1]
+	while True:
+		for count, value in enumerate(series_list):
+			country = _format_country(value.get('country'))
+			if value['year'] is not None:
+				log.plain('({}) {} ({}){}'.format(count + 1, value['name'], value['year'], country))
+			else:
+				log.plain('({}) {}{}'.format(count + 1, value['name'], country))
+		extra = ', "n" for more results' if can_fetch_more and can_fetch_more() else ''
+		choice = input(
+			log.prompt(f'Select correct series for {orig_name} ("i" to ignore{extra}): ')
+		)
+		if choice == 'n':
+			if fetch_more is None:
+				raise FileIOException('Invalid input.')
+			series_list = fetch_more()
+			continue
+		if choice == '':
+			return series_list[0]
+		if choice == 'i':
+			return None
+		try:
+			selection = int(choice)
+		except ValueError as exc:
+			raise FileIOException('Invalid input.') from exc
+		if selection < 1 or selection > len(series_list):
+			raise FileIOException('Invalid input.')
+		return series_list[selection - 1]
 
 
 def winsafe_filename(filename: str) -> str:
