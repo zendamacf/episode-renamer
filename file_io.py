@@ -38,9 +38,11 @@ def _validate_home_moved(home: str, moved: str) -> None:
 		raise FileIOException(
 			f'HOME and MOVED must be different directories (both resolve to {home_norm}).'
 		)
-	if home_norm.startswith(moved_norm + os.sep) or moved_norm.startswith(home_norm + os.sep):
+	nested = home_norm.startswith(moved_norm + os.sep) or moved_norm.startswith(home_norm + os.sep)
+	if nested:
 		raise FileIOException(
-			f'HOME and MOVED must not nest inside each other (HOME={home_norm}, MOVED={moved_norm}).'
+			'HOME and MOVED must not nest inside each other '
+			f'(HOME={home_norm}, MOVED={moved_norm}).'
 		)
 
 
