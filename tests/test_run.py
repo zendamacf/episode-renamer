@@ -140,9 +140,7 @@ class TestQuietAndRecursive:
 		with patch('run.io.read_config', return_value=config):
 			run.main(dryrun=False, recursive=False)
 
-		assert (
-			moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
-		).exists()
+		assert (moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4').exists()
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')
