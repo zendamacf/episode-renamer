@@ -337,11 +337,13 @@ def rename_and_move(
 	show: str,
 	year: int | None,
 	season: int,
-) -> str:
+) -> tuple[str, bool]:
 	"""
 	Rename and sort the file into folders.
 
-	Returns the absolute destination path.
+	Returns ``(absolute destination path, moved)``. When the destination file
+	already exists at the computed path, the move is skipped (``moved`` is False)
+	so neither the destination nor the source is overwritten or deleted.
 	"""
 	safe_show = winsafe_filename(str(show))
 	if not safe_show:
@@ -354,7 +356,14 @@ def rename_and_move(
 
 	curr_file = os.path.join(orig_directory, orig_filename)
 	new_file = os.path.join(season_folder, new_filename)
+	if os.path.exists(new_file):
+		if os.path.exists(curr_file):
+			log.warn(f'{new_file} (source remains at {curr_file})', prefix='Already')
+		else:
+			log.success(new_file, prefix='Already')
+		return new_file, False
+
 	move_file(curr_file, new_file)
 
 	log.success(new_file, prefix='Moved')
-	return new_file
+	return new_file, True
