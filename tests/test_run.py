@@ -8,6 +8,7 @@ import history
 import log
 import moviedb
 import run
+import series_cache
 
 
 class TestSeriesLabel:
@@ -207,6 +208,166 @@ class TestQuietAndRecursive:
 
 		dest = moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.fr.srt'
 		assert dest.exists()
+
+
+class TestPersistentSeriesCache:
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_second_run_uses_saved_selection_without_prompt(
+		self,
+		mock_get_series,
+		mock_get_episode,
+		media_dirs,
+		config_for_dirs,
+		monkeypatch,
+		capsys,
+	):
+		home, moved = media_dirs
+		filename = 'The Office S01E01.mp4'
+		(home / filename).write_text('video')
+		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_get_episode.return_value = 'Pilot'
+		monkeypatch.setattr('builtins.input', lambda _: '1')
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		assert (moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4').exists()
+		mock_get_series.reset_mock()
+		mock_get_episode.reset_mock()
+		(home / 'The Office S01E02.mp4').write_text('video')
+		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_get_episode.return_value = 'Diversity Day'
+		monkeypatch.setattr(
+			'builtins.input',
+			lambda *_args: (_ for _ in ()).throw(AssertionError('should not prompt')),
+		)
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		mock_get_series.assert_called_once()
+		assert (moved / 'The Office (2005)' / 'Season 1' / 'S01E02 - Diversity Day.mp4').exists()
+		assert_logged(capsys.readouterr().out, ('Cached', 'The Office (2005) for The Office'))
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_stale_cache_entry_reprompts(
+		self,
+		mock_get_series,
+		mock_get_episode,
+		media_dirs,
+		config_for_dirs,
+		isolate_series_cache,
+		monkeypatch,
+	):
+		import series_cache as sc
+
+		home, moved = media_dirs
+		filename = 'The Office S01E01.mp4'
+		(home / filename).write_text('video')
+		isolate_series_cache.write_text(
+			json.dumps(
+				{
+					'version': 1,
+					'entries': {
+						sc.serialize_cache_key('The Office', None): {
+							'id': 424242,
+							'name': 'The Office',
+							'year': 2005,
+							'country': ['US'],
+						},
+					},
+				}
+			)
+		)
+		mock_get_series.return_value = [OFFICE, OFFICE_UK]
+		mock_get_episode.return_value = 'Pilot'
+		monkeypatch.setattr('builtins.input', lambda _: '1')
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		assert (moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4').exists()
+		loaded = sc.load_cache()
+		assert loaded[('The Office', None)]['id'] == OFFICE['id']
+
+	@patch('run.moviedb.get_series')
+	def test_cached_entry_skipped_when_tmdb_returns_no_results(
+		self, mock_get_series, media_dirs, config_for_dirs, isolate_series_cache, capsys
+	):
+		import series_cache as sc
+
+		home, _ = media_dirs
+		(home / 'The Office S01E01.mp4').write_text('video')
+		isolate_series_cache.write_text(
+			json.dumps(
+				{
+					'version': 1,
+					'entries': {sc.serialize_cache_key('The Office', None): OFFICE},
+				}
+			)
+		)
+		mock_get_series.return_value = []
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		assert_logged(capsys.readouterr().out, ('No match', 'The Office'))
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_corrupt_series_cache_on_load_continues_rename(
+		self,
+		mock_get_series,
+		mock_get_episode,
+		media_dirs,
+		config_for_dirs,
+		isolate_series_cache,
+		capsys,
+	):
+		home, moved = media_dirs
+		(home / 'The Office S01E01.mp4').write_text('video')
+		isolate_series_cache.write_text('not-json')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		out = capsys.readouterr().out
+		assert_logged(out, ('Cache', 'Failed to read series cache'))
+		assert (moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4').exists()
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_save_series_cache_failure_is_logged(
+		self,
+		mock_get_series,
+		mock_get_episode,
+		media_dirs,
+		config_for_dirs,
+		capsys,
+	):
+		home, _ = media_dirs
+		(home / 'The Office S01E01.mp4').write_text('video')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+
+		with (
+			patch('run.io.read_config', return_value=config_for_dirs),
+			patch(
+				'run.series_cache.save_cache',
+				side_effect=series_cache.SeriesCacheException('write failed'),
+			),
+		):
+			run.main(dryrun=False)
+
+		assert_logged(
+			capsys.readouterr().out,
+			('Cache', 'write failed'),
+			('Done', '1 moved, 0 skipped, 0 failed'),
+		)
 
 
 class TestMain:

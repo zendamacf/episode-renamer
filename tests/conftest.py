@@ -86,3 +86,10 @@ def isolate_rename_history(tmp_path, monkeypatch):
 	path = tmp_path / 'rename_history.json'
 	monkeypatch.setattr('history.HISTORY_PATH', str(path))
 	return path
+
+
+@pytest.fixture(autouse=True)
+def isolate_series_cache(tmp_path, monkeypatch):
+	path = tmp_path / 'series_cache.json'
+	monkeypatch.setattr('series_cache.SERIES_CACHE_PATH', str(path))
+	return path

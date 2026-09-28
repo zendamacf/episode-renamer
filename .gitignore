@@ -1,6 +1,7 @@
 **/__pycache__/*
 config.json
 rename_history.json
+series_cache.json
 
 .venv
 

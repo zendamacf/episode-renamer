@@ -58,6 +58,8 @@ python run.py --quiet || exit 1
 
 Successful renames are recorded in `rename_history.json` (next to `config.json`). `--history` lists each batch with its id, file count, undo index (`undo 1` is the newest batch), and src → dest paths. Undo moves files back to `HOME` and removes empty show/season folders.
 
+TMDB series choices (from prompts or automatic single matches) are saved in `series_cache.json` beside `config.json`. Keys are the parsed show name and optional filename year; values store the TMDB id, name, year, and country. Later runs reuse the cache after verifying the id still appears in TMDB search results. Delete `series_cache.json` to clear cached selections and be prompted again.
+
 ### Supported input filenames
 
 The tool parses series name, season, and episode from filenames matching common TV naming patterns:

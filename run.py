@@ -8,6 +8,7 @@ import file_io as io
 import history
 import log
 import moviedb
+import series_cache
 
 parser = argparse.ArgumentParser(prog='Episode Renamer')
 parser.add_argument(
@@ -96,6 +97,13 @@ def _series_cache_key(parsed: dict) -> tuple:
 	return (parsed['name'], parsed.get('year'))
 
 
+def _find_series_by_id(series_id: int, series_list: list) -> dict | None:
+	for series in series_list:
+		if series['id'] == series_id:
+			return series
+	return None
+
+
 def _narrow_series_by_year(series_list: list, year: int | None) -> list:
 	"""
 	If a filename year is present, prefer TMDB results with that air year.
@@ -116,6 +124,7 @@ def _process_file(
 	f: dict,
 	config: dict,
 	matches: dict,
+	session_resolved: set[tuple],
 	dryrun: bool,
 ) -> list[dict] | Literal['skipped']:
 	"""
@@ -126,13 +135,36 @@ def _process_file(
 	the batch.
 	"""
 	cache_key = _series_cache_key(f)
+	chosen = None
 	if cache_key in matches:
-		chosen = matches[cache_key]
-		log.info(
-			f'{_series_label(chosen)} for {f["name"]}',
-			prefix='Cached',
-		)
-	else:
+		if cache_key in session_resolved:
+			chosen = matches[cache_key]
+			log.info(
+				f'{_series_label(chosen)} for {f["name"]}',
+				prefix='Cached',
+			)
+		else:
+			series_list = moviedb.get_series(f['name'], config['MOVIEDB_KEY'])
+			if not series_list:
+				log.warn(f['name'], prefix='No match')
+				return 'skipped'
+			refreshed = _find_series_by_id(matches[cache_key]['id'], series_list)
+			if refreshed is not None:
+				matches[cache_key] = refreshed
+				session_resolved.add(cache_key)
+				chosen = refreshed
+				log.info(
+					f'{_series_label(chosen)} for {f["name"]}',
+					prefix='Cached',
+				)
+			else:
+				log.warn(
+					f'cached TMDB id {matches[cache_key]["id"]} not in results for {f["name"]}',
+					prefix='Cache',
+				)
+				del matches[cache_key]
+
+	if chosen is None:
 		series_list = moviedb.get_series(f['name'], config['MOVIEDB_KEY'])
 		if not series_list:
 			log.warn(f['name'], prefix='No match')
@@ -157,6 +189,7 @@ def _process_file(
 			)
 
 		matches[cache_key] = chosen
+		session_resolved.add(cache_key)
 
 	episodename = moviedb.get_episode(
 		chosen['id'], f['season'], f['episode'], config['MOVIEDB_KEY']
@@ -390,7 +423,12 @@ def main(dryrun: bool, recursive: bool = False) -> None:
 
 	log.info(f'{len(found)} file(s)', prefix='Found')
 
-	matches = {}
+	try:
+		matches = series_cache.load_cache()
+	except series_cache.SeriesCacheException as e:
+		log.error(str(e), prefix='Cache')
+		matches = {}
+	session_resolved: set[tuple] = set()
 	moves = []
 	moved = 0
 	skipped = 0
@@ -398,7 +436,7 @@ def main(dryrun: bool, recursive: bool = False) -> None:
 
 	for f in found:
 		try:
-			result = _process_file(f, config, matches, dryrun)
+			result = _process_file(f, config, matches, session_resolved, dryrun)
 		except (moviedb.MovieDBException, io.FileIOException, OSError) as e:
 			log.error(f'{f["rel_path"]}: {e}', prefix='Failed')
 			failed += 1
@@ -415,6 +453,11 @@ def main(dryrun: bool, recursive: bool = False) -> None:
 			history.append_batch(moves)
 		except history.HistoryException as e:
 			log.error(str(e), prefix='History')
+
+	try:
+		series_cache.save_cache(matches)
+	except series_cache.SeriesCacheException as e:
+		log.error(str(e), prefix='Cache')
 
 	summary = f'{moved} moved, {skipped} skipped, {failed} failed'
 	log.summary(summary, prefix='Done', tone='warn' if failed else 'info')
