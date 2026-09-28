@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve Episode Renamer. This guide covers local setup, checks, changelog fragments, and release prep. User-facing usage lives in [README.md](README.md).
+Thanks for helping improve Episode Renamer. This guide covers local setup, checks, changelog fragments, and release prep. User-facing usage lives in [README.md](README.md). Coding agents should start with [AGENTS.md](AGENTS.md).
 
 ## Python and environment
 

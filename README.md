@@ -102,7 +102,7 @@ If the target filename already exists under `MOVED`, the renamer **skips** the m
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, Towncrier, coverage, and code style.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, Towncrier, coverage, and code style. Automated agents should read [AGENTS.md](AGENTS.md).
 
 ```bash
 python -m venv .venv
