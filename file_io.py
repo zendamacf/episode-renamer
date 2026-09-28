@@ -18,6 +18,26 @@ class FileIOException(Exception):
 
 
 REQUIRED_CONFIG_KEYS = ('MOVIEDB_KEY', 'HOME', 'MOVED')
+
+
+def _normalize_directory(path: str) -> str:
+	return os.path.realpath(os.path.abspath(path))
+
+
+def _validate_home_moved(home: str, moved: str) -> None:
+	"""
+	Reject dangerous HOME/MOVED combinations before any file operations.
+	"""
+	home_norm = _normalize_directory(home)
+	moved_norm = _normalize_directory(moved)
+	if home_norm == moved_norm:
+		raise FileIOException(
+			f'HOME and MOVED must be different directories (both resolve to {home_norm}).'
+		)
+	if home_norm.startswith(moved_norm + os.sep) or moved_norm.startswith(home_norm + os.sep):
+		raise FileIOException(
+			f'HOME and MOVED must not nest inside each other (HOME={home_norm}, MOVED={moved_norm}).'
+		)
 VIDEO_EXTENSIONS = frozenset({'mp4', 'flv', 'avi', 'mkv', 'm4v'})
 SUBTITLE_EXTENSIONS = frozenset({'srt', 'ass', 'ssa', 'vtt', 'sub'})
 # Language tag written on renamed subtitle files (e.g. S01E01 - Pilot.en.srt).
@@ -34,6 +54,8 @@ def read_config(filename: str) -> dict:
 	missing = [k for k in REQUIRED_CONFIG_KEYS if not config.get(k)]
 	if missing:
 		raise FileIOException('Missing or empty config keys: {}'.format(', '.join(missing)))
+
+	_validate_home_moved(config['HOME'], config['MOVED'])
 	return config
 
 

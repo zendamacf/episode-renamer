@@ -17,6 +17,42 @@ class TestSeriesLabel:
 		assert run._series_label({'name': 'Mystery Show', 'year': None}) == ('Mystery Show')
 
 
+class TestLoadConfig:
+	def test_missing_config_file(self, tmp_path, monkeypatch, capsys):
+		monkeypatch.chdir(tmp_path)
+		run.main(dryrun=False)
+		out = capsys.readouterr().out
+		assert_logged(out, ('Error', 'config.json not found. Copy config-example.json'))
+		assert 'MOVIEDB_KEY in the environment' in out
+
+	def test_missing_config_on_undo(self, tmp_path, monkeypatch, capsys):
+		monkeypatch.chdir(tmp_path)
+		run.undo_batches(1, dryrun=False)
+		assert_logged(
+			capsys.readouterr().out,
+			('Error', 'config.json not found'),
+		)
+
+	def test_invalid_home_moved_config_on_main(self, tmp_path, monkeypatch, capsys):
+		shared = tmp_path / 'library'
+		shared.mkdir()
+		(tmp_path / 'config.json').write_text(
+			json.dumps(
+				{
+					'MOVIEDB_KEY': 'key',
+					'HOME': str(shared),
+					'MOVED': str(shared),
+				}
+			)
+		)
+		monkeypatch.chdir(tmp_path)
+		run.main(dryrun=False)
+		assert_logged(
+			capsys.readouterr().out,
+			('Error', 'HOME and MOVED must be different directories'),
+		)
+
+
 class TestMain:
 	def test_no_files_found(self, config_for_dirs, capsys):
 		with patch('run.io.read_config', return_value=config_for_dirs):

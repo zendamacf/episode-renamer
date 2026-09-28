@@ -31,6 +31,34 @@ mode.add_argument(
 )
 
 
+_CONFIG_PATH = 'config.json'
+_CONFIG_HINT = (
+	f'{_CONFIG_PATH} not found. Copy config-example.json to {_CONFIG_PATH} '
+	'and set HOME, MOVED, and MOVIEDB_KEY. '
+	'You can set MOVIEDB_KEY in the environment, but HOME and MOVED still come from config.'
+)
+
+
+def _load_config() -> dict | None:
+	"""
+	Load config.json for rename/undo. Returns None after logging a user-facing error.
+	"""
+	try:
+		config = io.read_config(_CONFIG_PATH)
+	except FileNotFoundError:
+		log.error(_CONFIG_HINT, prefix='Error')
+		return None
+	except io.FileIOException as e:
+		log.error(str(e), prefix='Error')
+		return None
+
+	env_key = os.environ.get('MOVIEDB_KEY')
+	if env_key:
+		config['MOVIEDB_KEY'] = env_key
+		log.info('MOVIEDB_KEY from environment', prefix='Using')
+	return config
+
+
 def _series_label(series: dict) -> str:
 	if series.get('year') is not None:
 		return f'{series["name"]} ({series["year"]})'
@@ -247,7 +275,10 @@ def undo_batches(n: int, dryrun: bool) -> None:
 	if dryrun:
 		log.warn('No files will be moved', prefix='Dry-run')
 
-	config = io.read_config('config.json')
+	config = _load_config()
+	if config is None:
+		return
+
 	try:
 		data = history.load_history()
 	except history.HistoryException as e:
@@ -318,11 +349,9 @@ def main(dryrun: bool) -> None:
 	if dryrun:
 		log.warn('No files will be moved', prefix='Dry-run')
 
-	config = io.read_config('config.json')
-	env_key = os.environ.get('MOVIEDB_KEY')
-	if env_key:
-		config['MOVIEDB_KEY'] = env_key
-		log.info('MOVIEDB_KEY from environment', prefix='Using')
+	config = _load_config()
+	if config is None:
+		return
 
 	found = io.find_files(config['HOME'])
 	if len(found) == 0:
