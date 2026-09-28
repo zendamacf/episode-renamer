@@ -249,6 +249,40 @@ class TestGetSeries:
 		assert found['id'] == 2
 		assert mock_search_page.call_count == 2
 
+	@patch('moviedb.search_series_page')
+	def test_fetch_next_page_warns_when_capped(self, mock_search_page, capsys):
+		mock_search_page.side_effect = [
+			{
+				'results': [{'id': 1, 'name': 'A', 'year': 2000, 'country': None}],
+				'page': 1,
+				'total_pages': 5,
+			},
+			{
+				'results': [{'id': 2, 'name': 'B', 'year': 2001, 'country': None}],
+				'page': 2,
+				'total_pages': 5,
+			},
+			{
+				'results': [{'id': 3, 'name': 'C', 'year': 2002, 'country': None}],
+				'page': 3,
+				'total_pages': 5,
+			},
+		]
+		session = moviedb.begin_series_search('Show', 'key')
+		assert moviedb.fetch_next_page(session) is True
+		assert moviedb.fetch_next_page(session) is True
+		assert moviedb.fetch_next_page(session) is False
+		assert_logged(capsys.readouterr().out, ('TMDB', 'top 3 result pages only'))
+
+	@patch('moviedb.search_series_page')
+	def test_find_series_in_search_returns_none_when_missing(self, mock_search_page):
+		mock_search_page.return_value = {
+			'results': [{'id': 1, 'name': 'A', 'year': 2000, 'country': None}],
+			'page': 1,
+			'total_pages': 1,
+		}
+		assert moviedb.find_series_in_search('Show', 'key', 99) is None
+
 	@patch('moviedb._request')
 	def test_skips_results_missing_airdate(self, mock_request, capsys):
 		mock_request.return_value = {
