@@ -102,37 +102,11 @@ If the target filename already exists under `MOVED`, the renamer **skips** the m
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, Towncrier, coverage, and code style. Automated agents should read [AGENTS.md](AGENTS.md).
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-make install.dev
-```
-
-Common tasks are run via the [Makefile](Makefile):
-
-| Command | What it runs |
-| --- | --- |
-| `make install` | Install runtime dependencies |
-| `make install.dev` | Install runtime + dev dependencies |
-| `make lint` | Format check and Ruff lint |
-| `make format` | Apply Ruff formatting, then lint |
-| `make typecheck` | basedpyright |
-| `make test` | pytest |
-| `make check` | `lint` + `typecheck` |
-| `make ci` | `check` + `test` (what CI runs) |
-| `make release VERSION=0.2.2` | Prep release (bump version + changelog) |
-
-See [RELEASE.md](RELEASE.md) for changelog and release steps.
+[CONTRIBUTING.md](CONTRIBUTING.md) — setup, `make ci`, coverage, style. [AGENTS.md](AGENTS.md) — notes for coding agents. [RELEASE.md](RELEASE.md) — changelog and releases.
 
 ## Deployment
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-make install
-```
+Same clone and venv as [Installation](#installation), then `make install` (or `pip install -r requirements.txt`).
 ## License
 
 MIT — see [LICENSE](LICENSE).
