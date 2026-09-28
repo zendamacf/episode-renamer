@@ -41,6 +41,72 @@ class TestReadConfig:
 		with pytest.raises(io.FileIOException, match='MOVIEDB_KEY'):
 			io.read_config(str(path))
 
+	def test_equal_home_and_moved_raises(self, tmp_path):
+		path = tmp_path / 'config.json'
+		shared = tmp_path / 'library'
+		shared.mkdir()
+		path.write_text(
+			json.dumps(
+				{
+					'MOVIEDB_KEY': 'key',
+					'HOME': str(shared),
+					'MOVED': str(shared),
+				}
+			)
+		)
+		with pytest.raises(io.FileIOException, match='different directories'):
+			io.read_config(str(path))
+
+	def test_equal_home_and_moved_after_normalization_raises(self, tmp_path):
+		path = tmp_path / 'config.json'
+		shared = tmp_path / 'library'
+		shared.mkdir()
+		path.write_text(
+			json.dumps(
+				{
+					'MOVIEDB_KEY': 'key',
+					'HOME': str(shared) + '/.',
+					'MOVED': str(shared),
+				}
+			)
+		)
+		with pytest.raises(io.FileIOException, match='different directories'):
+			io.read_config(str(path))
+
+	def test_nested_home_inside_moved_raises(self, tmp_path):
+		path = tmp_path / 'config.json'
+		moved = tmp_path / 'moved'
+		home = moved / 'inbox'
+		home.mkdir(parents=True)
+		path.write_text(
+			json.dumps(
+				{
+					'MOVIEDB_KEY': 'key',
+					'HOME': str(home),
+					'MOVED': str(moved),
+				}
+			)
+		)
+		with pytest.raises(io.FileIOException, match='must not nest'):
+			io.read_config(str(path))
+
+	def test_nested_moved_inside_home_raises(self, tmp_path):
+		path = tmp_path / 'config.json'
+		home = tmp_path / 'home'
+		moved = home / 'archive'
+		moved.mkdir(parents=True)
+		path.write_text(
+			json.dumps(
+				{
+					'MOVIEDB_KEY': 'key',
+					'HOME': str(home),
+					'MOVED': str(moved),
+				}
+			)
+		)
+		with pytest.raises(io.FileIOException, match='must not nest'):
+			io.read_config(str(path))
+
 
 class TestIsVideoFile:
 	@pytest.mark.parametrize(
