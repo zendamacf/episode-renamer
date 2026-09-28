@@ -597,10 +597,10 @@ class TestMain:
 		out = capsys.readouterr().out
 		assert_logged(
 			out,
-			('Failed', 'The Office S01E01.srt:'),
+			'source remains at',
+			'The Office S01E01.srt',
 			('Done', '2 moved, 0 skipped, 0 failed'),
 		)
-		assert 'already Exists' in out
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.search_series_page')
@@ -623,8 +623,8 @@ class TestMain:
 		assert (home / filename).exists()
 		assert_logged(
 			capsys.readouterr().out,
-			('Failed', f'The Office S01E01.mp4: {dest_file} already Exists.'),
-			('Done', '0 moved, 0 skipped, 1 failed'),
+			('Already', str(dest_file)),
+			('Done', '0 moved, 0 skipped, 0 failed'),
 		)
 
 	@patch('run.moviedb.get_episode')

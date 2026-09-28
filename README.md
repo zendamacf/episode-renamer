@@ -98,7 +98,7 @@ MOVED/
 
 When multiple TMDB series match a filename, the tool loads the first TMDB search page and prompts for the correct one. Enter `n` at the prompt to load the next page (up to 3 pages per search, to limit API usage). Enter `i` to skip a file. Series choices are saved in `series_cache.json` for later runs.
 
-If a file’s destination under `MOVED` already exists, the renamer **skips** the move when the source is already gone (treated as already processed) or when the source and destination have identical content (safe re-run). If the destination exists but the source differs, the move fails so collisions (e.g. two subtitles targeting the same path) are still reported. Skipped re-runs are not added to `rename_history.json`.
+If the target filename already exists under `MOVED`, the renamer **skips** the move (nothing is overwritten or deleted; any copy still in `HOME` is left in place). Skipped moves are not added to `rename_history.json`.
 
 ## Development
 

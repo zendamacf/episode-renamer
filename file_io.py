@@ -290,22 +290,6 @@ def get_subtitle_filename(
 	return winsafe_filename(new_filename)
 
 
-def _files_have_same_content(path_a: str, path_b: str) -> bool:
-	try:
-		if os.path.getsize(path_a) != os.path.getsize(path_b):
-			return False
-		with open(path_a, 'rb') as file_a, open(path_b, 'rb') as file_b:
-			while True:
-				chunk_a = file_a.read(1024 * 1024)
-				chunk_b = file_b.read(1024 * 1024)
-				if chunk_a != chunk_b:
-					return False
-				if not chunk_a:
-					return True
-	except OSError:
-		return False
-
-
 def move_file(from_path: str, to_path: str) -> None:
 	"""
 	Move a file with O_EXCL destination reservation and cross-device fallback.
@@ -357,11 +341,9 @@ def rename_and_move(
 	"""
 	Rename and sort the file into folders.
 
-	Returns ``(absolute destination path, moved)``. When the destination already
-	exists, the move is skipped (``moved`` is False): if the source is gone the
-	file is treated as already processed; if the source remains, it is kept only
-	when both files have the same size (re-run), otherwise ``FileIOException`` is
-	raised (e.g. subtitle path collision).
+	Returns ``(absolute destination path, moved)``. When the destination file
+	already exists at the computed path, the move is skipped (``moved`` is False)
+	so neither the destination nor the source is overwritten or deleted.
 	"""
 	safe_show = winsafe_filename(str(show))
 	if not safe_show:
@@ -376,8 +358,6 @@ def rename_and_move(
 	new_file = os.path.join(season_folder, new_filename)
 	if os.path.exists(new_file):
 		if os.path.exists(curr_file):
-			if not _files_have_same_content(curr_file, new_file):
-				raise FileIOException(f'{new_file} already Exists.')
 			log.warn(f'{new_file} (source remains at {curr_file})', prefix='Already')
 		else:
 			log.success(new_file, prefix='Already')
