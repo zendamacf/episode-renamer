@@ -7,6 +7,9 @@ import series_cache
 
 
 class TestSeriesCacheKeys:
+	def test_empty_cache_structure(self):
+		assert series_cache.empty_cache() == {'version': 1, 'entries': {}}
+
 	def test_round_trip_cache_key(self):
 		key = ('The Office', 2005)
 		encoded = series_cache.serialize_cache_key(*key)
@@ -22,6 +25,20 @@ class TestCacheValidation:
 	def test_deserialize_invalid_key_shape(self):
 		with pytest.raises(series_cache.SeriesCacheException, match='Invalid series cache key'):
 			series_cache.deserialize_cache_key('"not-a-list"')
+
+	def test_deserialize_invalid_key_name_type(self):
+		with pytest.raises(
+			series_cache.SeriesCacheException,
+			match='Invalid series cache key name',
+		):
+			series_cache.deserialize_cache_key('[1, 2005]')
+
+	def test_deserialize_invalid_key_year_type(self):
+		with pytest.raises(
+			series_cache.SeriesCacheException,
+			match='Invalid series cache key year',
+		):
+			series_cache.deserialize_cache_key('["Show", "2005"]')
 
 	def test_normalize_series_entry_requires_id_and_name(self):
 		with pytest.raises(series_cache.SeriesCacheException, match='integer id'):
@@ -78,3 +95,34 @@ class TestSaveCache:
 		data = json.loads(isolate_series_cache.read_text())
 		assert data['version'] == 1
 		assert len(data['entries']) == 1
+
+	def test_save_replace_failure_raises(self, isolate_series_cache, monkeypatch):
+		matches: dict[tuple[str, int | None], dict] = {}
+		matches[('The Office', None)] = OFFICE
+
+		def fail_replace(src, dst):
+			raise OSError('disk full')
+
+		monkeypatch.setattr(series_cache.os, 'replace', fail_replace)
+
+		with pytest.raises(series_cache.SeriesCacheException, match='Failed to write'):
+			series_cache.save_cache(matches)
+
+		leftovers = list(isolate_series_cache.parent.glob('.series_cache_*'))
+		assert leftovers == []
+
+	def test_save_cleanup_ignores_unlink_errors(self, isolate_series_cache, monkeypatch):
+		matches: dict[tuple[str, int | None], dict] = {}
+		matches[('The Office', None)] = OFFICE
+
+		def fail_replace(src, dst):
+			raise OSError('disk full')
+
+		def fail_unlink(path):
+			raise OSError('busy')
+
+		monkeypatch.setattr(series_cache.os, 'replace', fail_replace)
+		monkeypatch.setattr(series_cache.os, 'unlink', fail_unlink)
+
+		with pytest.raises(series_cache.SeriesCacheException, match='Failed to write'):
+			series_cache.save_cache(matches)
