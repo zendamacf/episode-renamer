@@ -267,7 +267,7 @@ def _process_file(
 
 	moves: list[dict] = []
 	src = os.path.join(config['HOME'], video_rel)
-	dest = io.rename_and_move(
+	dest, moved_video = io.rename_and_move(
 		source_dir,
 		video_name,
 		config['MOVED'],
@@ -276,12 +276,13 @@ def _process_file(
 		chosen['year'],
 		f['season'],
 	)
-	moves.append({'src': src, 'dest': dest})
+	if moved_video:
+		moves.append({'src': src, 'dest': dest})
 
 	for sub_name, sub_new in subtitle_plans:
 		try:
 			sub_src = os.path.join(source_dir, sub_name)
-			sub_dest = io.rename_and_move(
+			sub_dest, moved_sub = io.rename_and_move(
 				source_dir,
 				sub_name,
 				config['MOVED'],
@@ -290,7 +291,8 @@ def _process_file(
 				chosen['year'],
 				f['season'],
 			)
-			moves.append({'src': sub_src, 'dest': sub_dest})
+			if moved_sub:
+				moves.append({'src': sub_src, 'dest': sub_dest})
 		except (io.FileIOException, OSError) as e:
 			# Video already moved; keep going so successful moves are journaled.
 			log.error(f'{sub_name}: {e}', prefix='Failed')

@@ -629,6 +629,33 @@ class TestMain:
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.search_series_page')
+	def test_rerun_skips_when_destination_already_present(
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		filename = 'The Office S01E01.mp4'
+		payload = 'video-bytes'
+		dest_dir = moved / 'The Office (2005)' / 'Season 1'
+		dest_dir.mkdir(parents=True)
+		dest_file = dest_dir / 'S01E01 - Pilot.mp4'
+		dest_file.write_text(payload)
+		(home / filename).write_text(payload)
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		assert dest_file.exists()
+		assert (home / filename).exists()
+		assert_logged(
+			capsys.readouterr().out,
+			('Already', str(dest_file)),
+			('Done', '0 moved, 0 skipped, 0 failed'),
+		)
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.search_series_page')
 	def test_cached_series_match_calls_get_series_once(
 		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):
@@ -883,7 +910,7 @@ class TestMain:
 				'run.io.rename_and_move',
 				side_effect=[
 					OSError('disk full'),
-					str(moved / 'fake' / 'S01E02 - Diversity Day.mp4'),
+					(str(moved / 'fake' / 'S01E02 - Diversity Day.mp4'), True),
 				],
 			),
 		):

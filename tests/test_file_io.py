@@ -546,7 +546,7 @@ class TestRenameAndMove:
 			('Moved', str(season_dir / new_name)),
 		)
 
-	def test_duplicate_destination_raises(self, dirs):
+	def test_duplicate_destination_raises_when_content_differs(self, dirs):
 		home, moved = dirs
 		orig = 'Show S01E01.mp4'
 		new_name = 'S01E01 - Pilot.mp4'
@@ -557,6 +557,45 @@ class TestRenameAndMove:
 
 		with pytest.raises(io.FileIOException, match='already Exists'):
 			io.rename_and_move(str(home), orig, str(moved), new_name, 'Show', 2005, 1)
+
+	def test_skips_when_destination_exists_and_source_gone(self, dirs, capsys):
+		home, moved = dirs
+		orig = 'Show S01E01.mp4'
+		new_name = 'S01E01 - Pilot.mp4'
+		season_dir = moved / 'Show (2005)' / 'Season 1'
+		season_dir.mkdir(parents=True)
+		dest = season_dir / new_name
+		dest.write_text('video')
+
+		path, moved_flag = io.rename_and_move(
+			str(home), orig, str(moved), new_name, 'Show', 2005, 1
+		)
+
+		assert path == str(dest)
+		assert moved_flag is False
+		assert_logged(capsys.readouterr().out, ('Already', str(dest)))
+
+	def test_skips_when_destination_exists_and_same_content_source_remains(
+		self, dirs, capsys
+	):
+		home, moved = dirs
+		orig = 'Show S01E01.mp4'
+		new_name = 'S01E01 - Pilot.mp4'
+		payload = 'same-bytes'
+		(home / orig).write_text(payload)
+		season_dir = moved / 'Show (2005)' / 'Season 1'
+		season_dir.mkdir(parents=True)
+		dest = season_dir / new_name
+		dest.write_text(payload)
+
+		path, moved_flag = io.rename_and_move(
+			str(home), orig, str(moved), new_name, 'Show', 2005, 1
+		)
+
+		assert path == str(dest)
+		assert moved_flag is False
+		assert (home / orig).exists()
+		assert_logged(capsys.readouterr().out, ('Already', str(dest)))
 
 	def test_sanitizes_unsafe_show_name(self, dirs):
 		home, moved = dirs
