@@ -102,6 +102,8 @@ If the target filename already exists under `MOVED`, the renamer **skips** the m
 
 ## Development
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks, Towncrier, coverage, and code style.
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
