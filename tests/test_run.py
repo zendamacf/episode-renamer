@@ -53,6 +53,46 @@ class TestLoadConfig:
 			('Error', 'HOME and MOVED must be different directories'),
 		)
 
+	def test_subtitle_lang_from_environment(self, tmp_path, monkeypatch):
+		home = tmp_path / 'home'
+		moved = tmp_path / 'moved'
+		home.mkdir()
+		moved.mkdir()
+		(tmp_path / 'config.json').write_text(
+			json.dumps(
+				{
+					'MOVIEDB_KEY': 'key',
+					'HOME': str(home),
+					'MOVED': str(moved),
+				}
+			)
+		)
+		monkeypatch.chdir(tmp_path)
+		monkeypatch.setenv('SUBTITLE_LANG', 'fr')
+		config = run._load_config()
+		assert config is not None
+		assert config['SUBTITLE_LANG'] == 'fr'
+
+	def test_subtitle_lang_defaults_when_omitted(self, tmp_path, monkeypatch):
+		home = tmp_path / 'home'
+		moved = tmp_path / 'moved'
+		home.mkdir()
+		moved.mkdir()
+		(tmp_path / 'config.json').write_text(
+			json.dumps(
+				{
+					'MOVIEDB_KEY': 'key',
+					'HOME': str(home),
+					'MOVED': str(moved),
+				}
+			)
+		)
+		monkeypatch.chdir(tmp_path)
+		monkeypatch.delenv('SUBTITLE_LANG', raising=False)
+		config = run._load_config()
+		assert config is not None
+		assert config['SUBTITLE_LANG'] == io.DEFAULT_SUBTITLE_LANG
+
 
 class TestQuietAndRecursive:
 	@patch('run.moviedb.get_episode')
@@ -76,6 +116,33 @@ class TestQuietAndRecursive:
 		assert 'Running renamer' not in out
 		assert_logged(out, ('Done', '1 moved, 0 skipped, 0 failed'))
 		assert (moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4').exists()
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.get_series')
+	def test_config_recursive_scan_finds_nested_video(
+		self, mock_get_series, mock_get_episode, media_dirs, capsys
+	):
+		home, moved = media_dirs
+		config = {
+			'MOVIEDB_KEY': 'test-api-key',
+			'HOME': str(home),
+			'MOVED': str(moved),
+			'RECURSIVE_SCAN': True,
+			'SUBTITLE_LANG': 'en',
+		}
+		nested = home / 'inbox'
+		nested.mkdir()
+		filename = 'The Office S01E01.mp4'
+		(nested / filename).write_text('video')
+		mock_get_series.return_value = [OFFICE]
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config):
+			run.main(dryrun=False, recursive=False)
+
+		assert (
+			moved / 'The Office (2005)' / 'Season 1' / 'S01E01 - Pilot.mp4'
+		).exists()
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.get_series')

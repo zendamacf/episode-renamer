@@ -8,9 +8,15 @@ import json
 import os
 import re
 import shutil
-from typing import Any
+from typing import Any, TypedDict
 
 import log
+
+
+class SubtitleCompanion(TypedDict):
+	filename: str
+	extension: str
+	lang: str | None
 
 
 class FileIOException(Exception):
@@ -123,7 +129,7 @@ def is_subtitle_file(filename: str) -> bool:
 	return parts[1].lower() in SUBTITLE_EXTENSIONS
 
 
-def find_subtitle_companions(directory: str, video_filename: str) -> list[dict[str, str]]:
+def find_subtitle_companions(directory: str, video_filename: str) -> list[SubtitleCompanion]:
 	"""
 	Find subtitle files that pair with a video by basename.
 
@@ -131,7 +137,7 @@ def find_subtitle_companions(directory: str, video_filename: str) -> list[dict[s
 	"""
 	stem = video_filename.rsplit('.', 1)[0]
 	prefix = stem + '.'
-	companions: list[dict[str, str]] = []
+	companions: list[SubtitleCompanion] = []
 	for name in sorted(os.listdir(directory), key=str.lower):
 		if name == video_filename or not name.startswith(prefix):
 			continue

@@ -400,6 +400,21 @@ class TestFindFiles:
 
 		assert found == []
 
+	def test_recursive_skips_non_file_entries(self, tmp_path):
+		nested = tmp_path / 'downloads'
+		nested.mkdir()
+		filename = PARSEABLE_FILENAMES['s01e01']
+		(nested / filename).write_text('video')
+		try:
+			(nested / 'ghost.mp4').symlink_to('/no/such/path')
+		except OSError:
+			pytest.skip('symlinks unavailable')
+
+		found = io.find_files(str(tmp_path), recursive=True)
+
+		assert len(found) == 1
+		assert found[0]['rel_path'] == f'downloads/{filename}'
+
 
 class TestPromptUser:
 	def test_empty_input_selects_first(self, series_list, monkeypatch):
