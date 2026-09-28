@@ -496,6 +496,26 @@ class TestPromptUser:
 		)
 
 
+class TestFilesHaveSameContent:
+	def test_returns_false_on_oserror(self, monkeypatch):
+		def fail_getsize(_path):
+			raise OSError('no access')
+
+		monkeypatch.setattr(io.os.path, 'getsize', fail_getsize)
+		assert io._files_have_same_content('/a', '/b') is False
+
+
+class TestMoveFileExists:
+	def test_raises_when_destination_already_exists(self, tmp_path):
+		src = tmp_path / 'src.mp4'
+		dest = tmp_path / 'dest.mp4'
+		src.write_text('src')
+		dest.write_text('dest')
+
+		with pytest.raises(io.FileIOException, match='already Exists'):
+			io.move_file(str(src), str(dest))
+
+
 class TestRenameAndMove:
 	@pytest.fixture
 	def dirs(self, tmp_path):
@@ -575,9 +595,7 @@ class TestRenameAndMove:
 		assert moved_flag is False
 		assert_logged(capsys.readouterr().out, ('Already', str(dest)))
 
-	def test_skips_when_destination_exists_and_same_content_source_remains(
-		self, dirs, capsys
-	):
+	def test_skips_when_destination_exists_and_same_content_source_remains(self, dirs, capsys):
 		home, moved = dirs
 		orig = 'Show S01E01.mp4'
 		new_name = 'S01E01 - Pilot.mp4'
