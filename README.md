@@ -5,6 +5,8 @@
 
 Rename TV episode video files using metadata from [The Movie Database (TMDB)](https://www.themoviedb.org/) and organize them into a sorted folder structure.
 
+To rename movies, use [movie-renamer](https://github.com/zendamacf/movie-renamer).
+
 ## Requirements
 
 - Python 3.12+ ([development version](./.python-version))
