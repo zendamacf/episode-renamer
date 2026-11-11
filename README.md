@@ -127,7 +127,7 @@ If the target filename already exists under `MOVED`, the renamer **skips** the m
 
 ## Development
 
-[CONTRIBUTING.md](CONTRIBUTING.md) — setup, `make ci`, coverage, style. [AGENTS.md](AGENTS.md) — notes for coding agents. [RELEASE.md](RELEASE.md) — changelog and releases.
+[CONTRIBUTING.md](CONTRIBUTING.md) — setup, `make ci`, coverage, style. [CLAUDE.md](CLAUDE.md) — notes for Claude Code. [RELEASE.md](RELEASE.md) — changelog and releases.
 
 ## Deployment
 
