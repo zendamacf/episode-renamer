@@ -1,6 +1,6 @@
-# Agent guide
+# CLAUDE.md
 
-For automated coding agents. Humans: [CONTRIBUTING.md](CONTRIBUTING.md).
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. Humans: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Project
 
@@ -32,7 +32,14 @@ If `python` is missing on PATH, use `python3` and `python3 -m` for pytest/Ruff/b
 4. Update [README.md](README.md) for CLI flags, config keys, or user-visible behavior.
 5. PR body: one `Fixes #N` line per issue (not combined).
 
-## Agent-specific
+## Commits and pull requests
+
+- Use [Conventional Commits](https://www.conventionalcommits.org/) for every commit and PR title: `type(scope): short imperative summary`.
+- Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`. Scope is optional, for example `fix(moviedb): handle empty search results`.
+- Keep the subject under about 72 characters. The PR number is added at the end on merge, for example `(#90)`.
+- Release commits use `chore: release X.Y.Z`. Older history does not follow this format, but new commits must.
+
+## Rules
 
 - Mock TMDB in tests; never commit real API keys.
 - Do not overwrite or delete user media on ambiguous paths; follow existing `rename_and_move` skip/log behavior.

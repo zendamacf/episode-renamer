@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve Episode Renamer. User-facing usage is in [README.md](README.md). Coding agents should start with [AGENTS.md](AGENTS.md).
+Thanks for helping improve Episode Renamer. User-facing usage is in [README.md](README.md). Claude Code should start with [CLAUDE.md](CLAUDE.md).
 
 ## Python and environment
 
