@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 <!-- towncrier release notes start -->
 
+## [1.1.0](https://github.com/zendamacf/episode-renamer/releases/tag/v1.1.0) (2026-11-11)
+
+### Features
+
+- Add `--auto [first|skip]` for non-interactive runs that log skipped files and exit non-zero when any file is skipped or fails. ([#84](https://github.com/zendamacf/episode-renamer/issues/84))
+- Support `ts`, `wmv`, `mov` and `webm` videos, and move `nfo`, `jpg` and `png` sidecar files that share the video basename. ([#85](https://github.com/zendamacf/episode-renamer/issues/85))
+- Handle absolute episode numbers (`Show - 105.mkv`) via TMDB episode groups, asking when the match is unclear. ([#82](https://github.com/zendamacf/episode-renamer/issues/82))
+- Add a `PLATFORM` config key and `--platform` option to choose a Plex (default), Jellyfin, Emby, or Kodi naming layout. ([#81](https://github.com/zendamacf/episode-renamer/issues/81))
+- Rename multi-episode files (`Show S01E01E02.mkv`, `Show S01E01-E02.mkv`) using the episode range and both titles, e.g. `S01E01-E02 - Title 1 - Title 2.mkv`. ([#80](https://github.com/zendamacf/episode-renamer/issues/80))
+
+### Documentation
+
+- Add a link to movie-renamer in the README.
+
+
 ## [1.0.1](https://github.com/zendamacf/episode-renamer/releases/tag/v1.0.1) (2026-11-07)
 
 ### Misc
