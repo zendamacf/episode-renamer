@@ -79,6 +79,7 @@ The tool parses series name, season, and episode from filenames matching common 
 - `The Office 102.avi` (compact `S01E02` style)
 - `The Office 2005 S02E03.m4v`
 - `The.Office.(2005).S01E01.mkv`
+- `Show - 105.mkv`: if the series has a TMDB "Absolute order" episode group that maps 105 to a different episode than `S01E05`, you are asked which one is right (`--auto` uses `S01E05`; `--auto skip` skips the file). With no such group, it is read as `S01E05`.
 
 When a year appears between the show name and season/episode marker, it is used to prefer the matching TMDB series and skip the interactive prompt when only one result matches that year. If multiple TMDB results share the same year, the tool still prompts.
 

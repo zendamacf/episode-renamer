@@ -218,7 +218,7 @@ def parse_filename(filename: str) -> dict[str, str | int | None]:
 			continue
 		match_dict = match.groupdict()
 		year_raw = match_dict.get('year')
-		return {
+		parsed: dict[str, str | int | None] = {
 			'name': match_dict['name'].replace('.', ' ').strip().rstrip(' -'),
 			'season': int(match_dict['s']),
 			'episode': int(match_dict['e']),
@@ -226,6 +226,10 @@ def parse_filename(filename: str) -> dict[str, str | int | None]:
 			'filename': filename,
 			'extension': match_dict['ext'],
 		}
+		if parser is regex_parsers[-1]:
+			# "Show - 105" may be S1E05 or absolute episode 105.
+			parsed['absolute'] = int(match_dict['s'] + match_dict['e'])
+		return parsed
 
 	raise FileIOException('Filename not matched.')
 
@@ -273,6 +277,29 @@ def prompt_user(
 		if selection < 1 or selection > len(series_list):
 			raise FileIOException('Invalid input.')
 		return series_list[selection - 1]
+
+
+def prompt_numbering(
+	orig_name: str,
+	choices: list[tuple[int, int, str]],
+) -> tuple[int, int] | None:
+	"""
+	Ask which (season, episode) an ambiguous number refers to.
+	"""
+	for count, (season, episode, title) in enumerate(choices):
+		log.plain(f'({count + 1}) S{season:02d}E{episode:02d} - {title}')
+	choice = input(log.prompt(f'Select correct episode for {orig_name} ("i" to skip): '))
+	if choice == '':
+		return choices[0][:2]
+	if choice == 'i':
+		return None
+	try:
+		selection = int(choice)
+	except ValueError as exc:
+		raise FileIOException('Invalid input.') from exc
+	if selection < 1 or selection > len(choices):
+		raise FileIOException('Invalid input.')
+	return choices[selection - 1][:2]
 
 
 def winsafe_filename(filename: str) -> str:

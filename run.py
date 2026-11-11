@@ -147,6 +147,49 @@ def _narrow_series_by_year(series_list: list, year: int | None) -> list:
 	return series_list
 
 
+def _resolve_numbering(
+	f: dict, series: dict, config: dict, auto: str | None
+) -> tuple[int, int, str | None] | None:
+	"""
+	Return (season, episode, TMDB title) for a parsed file, or None to skip it.
+
+	A bare number like ``Show - 105`` is read as S1E05 unless the series has a TMDB
+	absolute-order episode group that maps 105 elsewhere; then the user chooses.
+	"""
+	key = config['MOVIEDB_KEY']
+	season, episode = f['season'], f['episode']
+	title = moviedb.get_episode(series['id'], season, episode, key)
+	absolute = f.get('absolute')
+	if absolute is None:
+		return season, episode, title
+	mapped = moviedb.get_absolute_episode(series['id'], absolute, key)
+	if mapped is None or mapped == (season, episode):
+		return season, episode, title
+	mapped_title = moviedb.get_episode(series['id'], mapped[0], mapped[1], key)
+	if mapped_title is None:
+		return season, episode, title
+	if title is None:
+		return mapped[0], mapped[1], mapped_title
+	if auto == 'first':
+		log.info(f'{f["rel_path"]}: S{season:02d}E{episode:02d}', prefix='Auto')
+		return season, episode, title
+	if auto == 'skip':
+		log.warn(
+			f'{f["rel_path"]}: absolute {absolute} or S{season:02d}E{episode:02d}',
+			prefix='Ambiguous',
+		)
+		return None
+	choice = io.prompt_numbering(
+		f['rel_path'], [(season, episode, title), (mapped[0], mapped[1], mapped_title)]
+	)
+	if choice is None:
+		log.warn(f['rel_path'], prefix='Ignoring')
+		return None
+	if choice == mapped:
+		return mapped[0], mapped[1], mapped_title
+	return season, episode, title
+
+
 def _process_file(
 	f: dict,
 	config: dict,
@@ -242,19 +285,18 @@ def _process_file(
 		matches[cache_key] = chosen
 		session_resolved.add(cache_key)
 
-	episodename = moviedb.get_episode(
-		chosen['id'], f['season'], f['episode'], config['MOVIEDB_KEY']
-	)
+	numbering = _resolve_numbering(f, chosen, config, auto)
+	if numbering is None:
+		return 'skipped'
+	season, episode, episodename = numbering
 	if episodename is None:
 		log.warn(
-			f'{f["name"]} S{f["season"]}E{f["episode"]}',
+			f'{f["name"]} S{season}E{episode}',
 			prefix='No episode',
 		)
 		return 'skipped'
 
-	new_filename = io.get_filename(
-		f['filename'], f['season'], f['episode'], episodename, f['extension']
-	)
+	new_filename = io.get_filename(f['filename'], season, episode, episodename, f['extension'])
 	video_rel = f['rel_path']
 	source_dir = _source_directory(config['HOME'], video_rel)
 	video_name = _video_basename(video_rel)
@@ -265,8 +307,8 @@ def _process_file(
 			sub['filename'],
 			io.get_subtitle_filename(
 				sub['filename'],
-				f['season'],
-				f['episode'],
+				season,
+				episode,
 				episodename,
 				sub['extension'],
 				lang=sub.get('lang') or default_sub_lang,
@@ -305,7 +347,7 @@ def _process_file(
 		new_filename,
 		chosen['name'],
 		chosen['year'],
-		f['season'],
+		season,
 	)
 	if moved_video:
 		moves.append({'src': src, 'dest': dest})
@@ -320,7 +362,7 @@ def _process_file(
 				sub_new,
 				chosen['name'],
 				chosen['year'],
-				f['season'],
+				season,
 			)
 			if moved_sub:
 				moves.append({'src': sub_src, 'dest': sub_dest})

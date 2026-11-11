@@ -404,3 +404,35 @@ class TestGetEpisode:
 		mock_request.return_value = {'id': 1}
 
 		assert moviedb.get_episode(2316, 1, 1, 'test-key') is None
+
+
+class TestGetAbsoluteEpisode:
+	GROUPS = {'results': [{'id': 'g0', 'type': 1}, {'id': 'g1', 'type': 2}]}
+	DETAIL = {
+		'groups': [
+			{'order': 2, 'episodes': [{'order': 0, 'season_number': 2, 'episode_number': 1}]},
+			{
+				'order': 1,
+				'episodes': [
+					{'order': 1, 'season_number': 1, 'episode_number': 2},
+					{'order': 0, 'season_number': 1, 'episode_number': 1},
+				],
+			},
+		]
+	}
+
+	@patch('moviedb._request')
+	def test_maps_number(self, mock_request):
+		mock_request.side_effect = [self.GROUPS, self.DETAIL]
+		assert moviedb.get_absolute_episode(1, 3, 'k') == (2, 1)
+		assert mock_request.call_args.args[0] == '/tv/episode_group/g1'
+
+	@patch('moviedb._request')
+	def test_out_of_range(self, mock_request):
+		mock_request.side_effect = [self.GROUPS, self.DETAIL]
+		assert moviedb.get_absolute_episode(1, 4, 'k') is None
+
+	@patch('moviedb._request')
+	def test_no_absolute_group(self, mock_request):
+		mock_request.return_value = {'results': [{'id': 'g0', 'type': 1}]}
+		assert moviedb.get_absolute_episode(1, 1, 'k') is None

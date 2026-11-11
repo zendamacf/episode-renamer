@@ -794,3 +794,19 @@ class TestRemoveEmptyParents:
 		assert not root.exists()
 		assert tmp_path.exists()
 		assert (tmp_path / 'keep').exists()
+
+
+class TestAbsolute:
+	def test_bare_number_records_absolute(self):
+		result = io.parse_filename('Show - 105.mkv')
+		assert (result['season'], result['episode'], result['absolute']) == (1, 5, 105)
+
+	def test_prompt_numbering(self, monkeypatch):
+		choices = [(1, 5, 'A'), (3, 2, 'B')]
+		for answer, expected in [('', (1, 5)), ('2', (3, 2)), ('i', None)]:
+			monkeypatch.setattr('builtins.input', lambda _, a=answer: a)
+			assert io.prompt_numbering('x', choices) == expected
+		for bad in ('zz', '9'):
+			monkeypatch.setattr('builtins.input', lambda _, b=bad: b)
+			with pytest.raises(io.FileIOException):
+				io.prompt_numbering('x', choices)
