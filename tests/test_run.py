@@ -541,6 +541,28 @@ class TestMain:
 
 	@patch('run.moviedb.get_episode')
 	@patch('run.moviedb.search_series_page')
+	def test_moves_sidecar_files_with_video(
+		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs
+	):
+		home, moved = media_dirs
+		(home / 'The Office S01E01.webm').write_text('video')
+		(home / 'The Office S01E01.nfo').write_text('nfo')
+		(home / 'The Office S01E01.jpg').write_text('jpg')
+		mock_search_series_page.return_value = tmdb_page([OFFICE])
+		mock_get_episode.return_value = 'Pilot'
+
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+
+		season = moved / 'The Office (2005)' / 'Season 1'
+		assert (season / 'S01E01 - Pilot.webm').exists()
+		assert (season / 'S01E01 - Pilot.nfo').read_text() == 'nfo'
+		assert (season / 'S01E01 - Pilot.jpg').read_text() == 'jpg'
+		assert not (home / 'The Office S01E01.nfo').exists()
+		assert not (home / 'The Office S01E01.jpg').exists()
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.search_series_page')
 	def test_dryrun_previews_subtitle_companions(
 		self, mock_search_series_page, mock_get_episode, media_dirs, config_for_dirs, capsys
 	):

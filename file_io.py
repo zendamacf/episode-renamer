@@ -25,8 +25,10 @@ class FileIOException(Exception):
 
 
 REQUIRED_CONFIG_KEYS = ('MOVIEDB_KEY', 'HOME', 'MOVED')
-VIDEO_EXTENSIONS = frozenset({'mp4', 'flv', 'avi', 'mkv', 'm4v'})
+VIDEO_EXTENSIONS = frozenset({'mp4', 'flv', 'avi', 'mkv', 'm4v', 'ts', 'wmv', 'mov', 'webm'})
 SUBTITLE_EXTENSIONS = frozenset({'srt', 'ass', 'ssa', 'vtt', 'sub'})
+# Metadata and artwork that share the video's basename (e.g. ``stem.nfo``, ``stem.jpg``).
+SIDECAR_EXTENSIONS = frozenset({'nfo', 'jpg', 'png'})
 # Default language tag when the source subtitle has no language in its name.
 DEFAULT_SUBTITLE_LANG = 'en'
 
@@ -160,6 +162,27 @@ def find_subtitle_companions(directory: str, video_filename: str) -> list[Subtit
 	return companions
 
 
+def find_sidecar_files(directory: str, video_filename: str) -> list[dict[str, str]]:
+	"""
+	Find ``.nfo`` and artwork (``.jpg``, ``.png``) files sharing the video's basename.
+
+	Matches ``stem.<ext>`` only (case-insensitive ext).
+	"""
+	stem = video_filename.rsplit('.', 1)[0]
+	prefix = stem + '.'
+	sidecars: list[dict[str, str]] = []
+	for name in sorted(os.listdir(directory), key=str.lower):
+		if name == video_filename or not name.startswith(prefix):
+			continue
+		ext = name[len(prefix) :]
+		if ext.lower() not in SIDECAR_EXTENSIONS:
+			continue
+		if not os.path.isfile(os.path.join(directory, name)):
+			continue
+		sidecars.append({'filename': name, 'extension': ext.lower()})
+	return sidecars
+
+
 def parse_filename(filename: str) -> dict[str, str | int | None]:
 	"""
 	Uses regex to pull series name, season and episode numbers.
@@ -288,6 +311,15 @@ def get_subtitle_filename(
 	log.info(filename, prefix='Current')
 	log.info(new_filename, prefix='New')
 	return winsafe_filename(new_filename)
+
+
+def get_sidecar_filename(
+	filename: str, season: int, episode: int, episodename: str, extension: str
+) -> str:
+	"""
+	Returns the new sidecar filename (``SxxExx - Title.ext``).
+	"""
+	return get_filename(filename, season, episode, episodename, extension)
 
 
 def move_file(from_path: str, to_path: str) -> None:

@@ -191,13 +191,40 @@ class TestFindSubtitleCompanions:
 		video = 'The Office S01E01.mp4'
 		(tmp_path / video).write_text('video')
 		(tmp_path / 'The Office S01E01.extras').mkdir()
-		(tmp_path / 'The Office S01E01.nfo').write_text('nfo')
+		(tmp_path / 'The Office S01E01.txt').write_text('notes')
 		(tmp_path / 'The Office S01E01..srt').write_text('empty-lang')
 		(tmp_path / 'The Office S01E01.srt').write_text('sub')
 
 		found = io.find_subtitle_companions(str(tmp_path), video)
 
 		assert found == [{'filename': 'The Office S01E01.srt', 'extension': 'srt', 'lang': None}]
+
+
+class TestFindSidecarFiles:
+	def test_matches_nfo_and_artwork(self, tmp_path):
+		video = 'The Office S01E01.mkv'
+		(tmp_path / video).write_text('video')
+		(tmp_path / 'The Office S01E01.nfo').write_text('nfo')
+		(tmp_path / 'The Office S01E01.JPG').write_text('jpg')
+		(tmp_path / 'The Office S01E01.png').write_text('png')
+		(tmp_path / 'The Office S01E01.srt').write_text('sub')
+		(tmp_path / 'The Office S01E01-poster.jpg').write_text('other')
+		(tmp_path / 'The Office S01E02.nfo').write_text('other')
+
+		assert io.find_sidecar_files(str(tmp_path), video) == [
+			{'filename': 'The Office S01E01.JPG', 'extension': 'jpg'},
+			{'filename': 'The Office S01E01.nfo', 'extension': 'nfo'},
+			{'filename': 'The Office S01E01.png', 'extension': 'png'},
+		]
+
+	def test_ignores_directories(self, tmp_path):
+		video = 'The Office S01E01.mkv'
+		(tmp_path / video).write_text('video')
+		(tmp_path / 'The Office S01E01.jpg').mkdir()
+		assert io.find_sidecar_files(str(tmp_path), video) == []
+
+	def test_sidecar_filename(self):
+		assert io.get_sidecar_filename('a.nfo', 1, 2, 'Pilot', 'nfo') == 'S01E02 - Pilot.nfo'
 
 
 class TestParseFilename:

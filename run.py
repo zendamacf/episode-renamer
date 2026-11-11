@@ -156,7 +156,7 @@ def _process_file(
 	auto: str | None = None,
 ) -> list[dict] | Literal['skipped', 'previewed']:
 	"""
-	Resolve metadata and optionally rename one video (plus subtitle companions).
+	Resolve metadata and optionally rename one video (plus subtitle and sidecar files).
 
 	Returns a list of move records ``{'src', 'dest'}`` on success, 'previewed' for a
 	dry-run, or 'skipped'. ``auto`` is None (prompt) or 'first' / 'skip' (never prompt).
@@ -273,6 +273,15 @@ def _process_file(
 			),
 		)
 		for sub in companions
+	]
+	subtitle_plans += [
+		(
+			side['filename'],
+			io.get_sidecar_filename(
+				side['filename'], f['season'], f['episode'], episodename, side['extension']
+			),
+		)
+		for side in io.find_sidecar_files(source_dir, video_name)
 	]
 
 	if dryrun:
