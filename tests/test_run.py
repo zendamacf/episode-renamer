@@ -1515,3 +1515,49 @@ class TestPlatformOption:
 
 	def test_cli_parser_accepts_case_insensitive(self):
 		assert run.parser.parse_args(['--platform', 'EMBY']).platform == 'emby'
+
+
+class TestMultiEpisodeRun:
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.search_series_page')
+	def test_range_renamed_with_both_titles(
+		self, mock_search, mock_get_episode, media_dirs, config_for_dirs
+	):
+		home, moved = media_dirs
+		(home / 'The Office S01E01-E02.mp4').write_text('video')
+		(home / 'The Office S01E01-E02.nfo').write_text('meta')
+		mock_search.return_value = tmdb_page([OFFICE])
+		mock_get_episode.side_effect = ['Pilot', 'Diversity Day']
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+		season = moved / 'The Office (2005)' / 'Season 1'
+		assert (season / 'S01E01-E02 - Pilot - Diversity Day.mp4').exists()
+		assert (season / 'S01E01-E02 - Pilot - Diversity Day.nfo').exists()
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.search_series_page')
+	def test_range_with_missing_title_skipped(
+		self, mock_search, mock_get_episode, media_dirs, config_for_dirs
+	):
+		home, moved = media_dirs
+		(home / 'The Office S01E01E02.mp4').write_text('video')
+		mock_search.return_value = tmdb_page([OFFICE])
+		mock_get_episode.side_effect = ['Pilot', None]
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+		assert (home / 'The Office S01E01E02.mp4').exists()
+		assert not any(moved.rglob('*.mp4'))
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.search_series_page')
+	def test_three_episode_chain_names_all_titles(
+		self, mock_search, mock_get_episode, media_dirs, config_for_dirs
+	):
+		home, moved = media_dirs
+		(home / 'The Office S01E01E02E03.mp4').write_text('video')
+		mock_search.return_value = tmdb_page([OFFICE])
+		mock_get_episode.side_effect = ['A', 'B', 'C']
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			run.main(dryrun=False)
+		season = moved / 'The Office (2005)' / 'Season 1'
+		assert (season / 'S01E01-E03 - A - B - C.mp4').exists()

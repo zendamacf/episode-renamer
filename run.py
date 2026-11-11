@@ -319,6 +319,21 @@ def _process_file(
 		)
 		return 'skipped'
 
+	episode_end = f.get('episode_end')
+	if episode_end is not None:
+		# Multi-episode file (S01E01-E02): one title per episode, joined with " - ".
+		titles = [episodename] + [
+			moviedb.get_episode(chosen['id'], season, n, config['MOVIEDB_KEY'])
+			for n in range(episode + 1, episode_end + 1)
+		]
+		if any(t is None for t in titles):
+			log.warn(
+				f'{f["name"]} S{season}E{episode}-E{episode_end}',
+				prefix='No episode',
+			)
+			return 'skipped'
+		episodename = ' - '.join(t for t in titles if t)
+
 	platform = config['PLATFORM']
 	show_name = chosen['name']
 	new_filename = io.get_filename(
@@ -329,6 +344,7 @@ def _process_file(
 		f['extension'],
 		show=show_name,
 		platform=platform,
+		episode_end=episode_end,
 	)
 	video_rel = f['rel_path']
 	source_dir = _source_directory(config['HOME'], video_rel)
@@ -347,6 +363,7 @@ def _process_file(
 				lang=sub.get('lang') or default_sub_lang,
 				show=show_name,
 				platform=platform,
+				episode_end=episode_end,
 			),
 		)
 		for sub in companions
@@ -356,12 +373,13 @@ def _process_file(
 			side['filename'],
 			io.get_sidecar_filename(
 				side['filename'],
-				f['season'],
-				f['episode'],
+				season,
+				episode,
 				episodename,
 				side['extension'],
 				show=show_name,
 				platform=platform,
+				episode_end=episode_end,
 			),
 		)
 		for side in io.find_sidecar_files(source_dir, video_name)

@@ -32,6 +32,10 @@ class PlatformTemplate(TypedDict):
 	show_folder: str
 	season_folder: str
 	episode: str
+	# Episode marker substituted into ``episode`` as ``{episode_label}``; a platform can
+	# use a different range style (e.g. ``E01E02``) without touching the file template.
+	episode_label: str
+	episode_range_label: str
 
 
 class FileIOException(Exception):
@@ -48,27 +52,36 @@ DEFAULT_SUBTITLE_LANG = 'en'
 
 DEFAULT_PLATFORM: Platform = Platform.plex
 # Folder and file name templates per media server. ``episode`` has no extension;
-# fields: show, year (folder only), season, episode, title.
+# fields: show, year (folder only), season, episode_label, title. ``episode_label`` is
+# built from ``episode_label`` / ``episode_range_label`` (fields: episode, episode_end).
 PLATFORM_TEMPLATES: dict[Platform, PlatformTemplate] = {
 	Platform.plex: {
 		'show_folder': '{show} ({year})',
 		'season_folder': 'Season {season}',
-		'episode': 'S{season:02d}E{episode:02d} - {title}',
+		'episode': 'S{season:02d}{episode_label} - {title}',
+		'episode_label': 'E{episode:02d}',
+		'episode_range_label': 'E{episode:02d}-E{episode_end:02d}',
 	},
 	Platform.jellyfin: {
 		'show_folder': '{show} ({year})',
 		'season_folder': 'Season {season:02d}',
-		'episode': '{show} S{season:02d}E{episode:02d} - {title}',
+		'episode': '{show} S{season:02d}{episode_label} - {title}',
+		'episode_label': 'E{episode:02d}',
+		'episode_range_label': 'E{episode:02d}-E{episode_end:02d}',
 	},
 	Platform.emby: {
 		'show_folder': '{show} ({year})',
 		'season_folder': 'Season {season:02d}',
-		'episode': '{show} - S{season:02d}E{episode:02d} - {title}',
+		'episode': '{show} - S{season:02d}{episode_label} - {title}',
+		'episode_label': 'E{episode:02d}',
+		'episode_range_label': 'E{episode:02d}-E{episode_end:02d}',
 	},
 	Platform.kodi: {
 		'show_folder': '{show} ({year})',
 		'season_folder': 'Season {season:02d}',
-		'episode': '{show} - S{season:02d}E{episode:02d} - {title}',
+		'episode': '{show} - S{season:02d}{episode_label} - {title}',
+		'episode_label': 'E{episode:02d}',
+		'episode_range_label': 'E{episode:02d}-E{episode_end:02d}',
 	},
 }
 
@@ -240,6 +253,23 @@ def find_sidecar_files(directory: str, video_filename: str) -> list[dict[str, st
 	return sidecars
 
 
+def _episode_range_end(first: int, more: str | None) -> int | None:
+	"""
+	Last episode of a multi-episode marker (``E01E02E03``, ``E01-E03``), or None.
+
+	Only an ascending range is accepted. A chain of three or more must be consecutive,
+	since the whole span is named; otherwise the file is treated as a single episode.
+	"""
+	if not more:
+		return None
+	numbers = [first, *(int(n) for n in re.findall(r'\d+', more))]
+	if numbers[-1] <= first:
+		return None
+	if len(numbers) > 2 and numbers != list(range(first, numbers[-1] + 1)):
+		return None
+	return numbers[-1]
+
+
 def parse_filename(filename: str) -> dict[str, str | int | None]:
 	"""
 	Uses regex to pull series name, season and episode numbers.
@@ -258,7 +288,7 @@ def parse_filename(filename: str) -> dict[str, str | int | None]:
 		file_start
 		+ r'(?P<name>.*?)'
 		+ optional_year
-		+ r'[\.\s]*s *(?P<s>\d+) *e *(?P<e>\d+).*'
+		+ r'[\.\s]*s *(?P<s>\d+) *e *(?P<e>\d+)(?P<e_more>(?:[\.\s]*-?[\.\s]*e *\d+)*).*'
 		+ file_end,
 		# Season x episode: "Show 1x01.mkv", "Show.2005.12x05.avi"
 		file_start
@@ -275,10 +305,13 @@ def parse_filename(filename: str) -> dict[str, str | int | None]:
 			continue
 		match_dict = match.groupdict()
 		year_raw = match_dict.get('year')
+		episode = int(match_dict['e'])
+		episode_end = _episode_range_end(episode, match_dict.get('e_more'))
 		parsed: dict[str, str | int | None] = {
 			'name': match_dict['name'].replace('.', ' ').strip().rstrip(' -'),
 			'season': int(match_dict['s']),
-			'episode': int(match_dict['e']),
+			'episode': episode,
+			'episode_end': episode_end,
 			'year': int(year_raw) if year_raw else None,
 			'filename': filename,
 			'extension': match_dict['ext'],
@@ -367,11 +400,20 @@ def winsafe_filename(filename: str) -> str:
 
 
 def _episode_basename(
-	platform: Platform, show: str, season: int, episode: int, episodename: str
+	platform: Platform,
+	show: str,
+	season: int,
+	episode: int,
+	episodename: str,
+	episode_end: int | None = None,
 ) -> str:
-	template = PLATFORM_TEMPLATES[platform]['episode']
-	return template.format(
-		show=winsafe_filename(show), season=season, episode=episode, title=episodename
+	template = PLATFORM_TEMPLATES[platform]
+	if episode_end is None:
+		label = template['episode_label'].format(episode=episode)
+	else:
+		label = template['episode_range_label'].format(episode=episode, episode_end=episode_end)
+	return template['episode'].format(
+		show=winsafe_filename(show), season=season, episode_label=label, title=episodename
 	)
 
 
@@ -384,11 +426,13 @@ def get_filename(
 	*,
 	show: str = '',
 	platform: Platform = DEFAULT_PLATFORM,
+	episode_end: int | None = None,
 ) -> str:
 	"""
 	Returns the new filename to use.
 	"""
-	new_filename = f'{_episode_basename(platform, show, season, episode, episodename)}.{extension}'
+	base = _episode_basename(platform, show, season, episode, episodename, episode_end)
+	new_filename = f'{base}.{extension}'
 	log.info(filename, prefix='Current')
 	log.info(new_filename, prefix='New')
 	return winsafe_filename(new_filename)
@@ -404,11 +448,12 @@ def get_subtitle_filename(
 	*,
 	show: str = '',
 	platform: Platform = DEFAULT_PLATFORM,
+	episode_end: int | None = None,
 ) -> str:
 	"""
 	Returns the new subtitle filename (episode name plus ``.<lang>.ext``).
 	"""
-	base = _episode_basename(platform, show, season, episode, episodename)
+	base = _episode_basename(platform, show, season, episode, episodename, episode_end)
 	new_filename = f'{base}.{lang}.{extension}'
 	log.info(filename, prefix='Current')
 	log.info(new_filename, prefix='New')
@@ -424,12 +469,20 @@ def get_sidecar_filename(
 	*,
 	show: str = '',
 	platform: Platform = DEFAULT_PLATFORM,
+	episode_end: int | None = None,
 ) -> str:
 	"""
 	Returns the new sidecar filename (episode name plus ``.ext``).
 	"""
 	return get_filename(
-		filename, season, episode, episodename, extension, show=show, platform=platform
+		filename,
+		season,
+		episode,
+		episodename,
+		extension,
+		show=show,
+		platform=platform,
+		episode_end=episode_end,
 	)
 
 
