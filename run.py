@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import sys
 from typing import Literal
 
 import file_io as io
@@ -25,6 +26,16 @@ parser.add_argument(
 	'--recursive',
 	action='store_true',
 	help='Scan nested folders under HOME (overrides config RECURSIVE_SCAN).',
+)
+parser.add_argument(
+	'--auto',
+	nargs='?',
+	const='first',
+	choices=('first', 'skip'),
+	metavar='{first,skip}',
+	help='Never prompt (for cron/scripts). When several TMDB series match, use the top '
+	'result (first, default) or skip the file (skip). Exits non-zero if a file is skipped '
+	'or fails.',
 )
 mode = parser.add_mutually_exclusive_group()
 mode.add_argument(
@@ -142,11 +153,13 @@ def _process_file(
 	matches: dict,
 	session_resolved: set[tuple],
 	dryrun: bool,
-) -> list[dict] | Literal['skipped']:
+	auto: str | None = None,
+) -> list[dict] | Literal['skipped', 'previewed']:
 	"""
 	Resolve metadata and optionally rename one video (plus subtitle companions).
 
-	Returns a list of move records ``{'src', 'dest'}`` on success, or 'skipped'.
+	Returns a list of move records ``{'src', 'dest'}`` on success, 'previewed' for a
+	dry-run, or 'skipped'. ``auto`` is None (prompt) or 'first' / 'skip' (never prompt).
 	Raises on hard failures so the caller can isolate the error and continue
 	the batch.
 	"""
@@ -197,6 +210,15 @@ def _process_file(
 				f'{_series_label(chosen)} for {f["name"]}',
 				prefix='Matched',
 			)
+		elif auto == 'first':
+			chosen = series_list[0]
+			log.info(
+				f'{_series_label(chosen)} for {f["name"]} ({len(series_list)} matches)',
+				prefix='Auto',
+			)
+		elif auto == 'skip':
+			log.warn(f'{f["rel_path"]}: {len(series_list)} matches', prefix='Ambiguous')
+			return 'skipped'
 		else:
 
 			def _more_results() -> list:
@@ -263,7 +285,7 @@ def _process_file(
 				f'{sub_name} -> {sub_new}',
 				prefix='Dry-run',
 			)
-		return 'skipped'
+		return 'previewed'
 
 	moves: list[dict] = []
 	src = os.path.join(config['HOME'], video_rel)
@@ -434,23 +456,29 @@ def undo_batches(n: int, dryrun: bool) -> None:
 	log.summary(summary, prefix='Undone', tone='warn' if failed else 'info')
 
 
-def main(dryrun: bool, recursive: bool = False) -> None:
+def main(
+	dryrun: bool,
+	recursive: bool = False,
+	auto: str | None = None,
+) -> int:
 	"""
-	Main rename function
+	Main rename function. Returns the process exit code: non-zero only with ``auto``
+	when a file was skipped or failed (or setup failed).
 	"""
+	failure_code = 1 if auto else 0
 	log.info('Running renamer...')
 	if dryrun:
 		log.warn('No files will be moved', prefix='Dry-run')
 
 	config = _load_config()
 	if config is None:
-		return
+		return failure_code
 
 	scan_recursive = recursive or bool(config.get('RECURSIVE_SCAN'))
 	found = io.find_files(config['HOME'], recursive=scan_recursive)
 	if len(found) == 0:
 		log.warn('No files found', prefix='Skip')
-		return
+		return 0
 
 	log.info(f'{len(found)} file(s)', prefix='Found')
 
@@ -463,17 +491,21 @@ def main(dryrun: bool, recursive: bool = False) -> None:
 	moves = []
 	moved = 0
 	skipped = 0
+	unresolved = 0
 	failed = 0
 
 	for f in found:
 		try:
-			result = _process_file(f, config, matches, session_resolved, dryrun)
+			result = _process_file(f, config, matches, session_resolved, dryrun, auto)
 		except (moviedb.MovieDBException, io.FileIOException, OSError) as e:
 			log.error(f'{f["rel_path"]}: {e}', prefix='Failed')
 			failed += 1
 			continue
 
 		if result == 'skipped':
+			skipped += 1
+			unresolved += 1
+		elif result == 'previewed':
 			skipped += 1
 		else:
 			moves.extend(result)
@@ -492,6 +524,7 @@ def main(dryrun: bool, recursive: bool = False) -> None:
 
 	summary = f'{moved} moved, {skipped} skipped, {failed} failed'
 	log.summary(summary, prefix='Done', tone='warn' if failed else 'info')
+	return 1 if auto and (unresolved or failed) else 0
 
 
 if __name__ == '__main__':
@@ -502,4 +535,4 @@ if __name__ == '__main__':
 	elif args.undo is not None:
 		undo_batches(args.undo, args.dryrun)
 	else:
-		main(args.dryrun, recursive=args.recursive)
+		sys.exit(main(args.dryrun, recursive=args.recursive, auto=args.auto))
