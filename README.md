@@ -42,6 +42,8 @@ Edit `config.json` with your TMDB API key and directory paths.
 python run.py           # rename and move files
 python run.py --dryrun  # preview changes without modifying files
 python run.py --quiet   # errors and final summary only (for cron/scripts)
+python run.py --auto    # never prompt; exit 1 if any file is skipped or fails
+python run.py --auto skip  # skip files with several TMDB matches
 python run.py --recursive  # scan nested folders under HOME (overrides RECURSIVE_SCAN)
 python run.py --history # list recorded rename batches
 python run.py --undo    # undo the last rename batch
@@ -54,6 +56,12 @@ With `--quiet`, a successful rename run prints only the final `Done:` summary (p
 
 ```bash
 python run.py --quiet || exit 1
+```
+
+With `--auto`, the run never waits for input. When several TMDB series match, it uses the top result (`--auto` or `--auto first`) or skips the file (`--auto skip`). Each skipped file is logged, and the exit code is 1 if any file was skipped or failed (dry-run previews don't count), so it suits cron:
+
+```bash
+python run.py --auto --quiet || echo "some files need attention"
 ```
 
 `--dryrun` does not move files, but it still calls TMDB and uses API quota.

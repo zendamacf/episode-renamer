@@ -1315,3 +1315,63 @@ class TestHistoryRecordingErrors:
 			('History', 'cannot write'),
 			('Done', '1 moved, 0 skipped, 0 failed'),
 		)
+
+
+class TestAutoMode:
+	def _setup(self, home, search, get_episode):
+		(home / 'The Office S01E01.mp4').write_text('video')
+		search.return_value = tmdb_page([OFFICE, OFFICE_UK])
+		get_episode.return_value = 'Pilot'
+
+	@patch('run.io.prompt_user')
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.search_series_page')
+	def test_auto_first_uses_top_result_without_prompt(
+		self, search, get_episode, prompt, media_dirs, config_for_dirs, capsys
+	):
+		home, moved = media_dirs
+		self._setup(home, search, get_episode)
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			code = run.main(dryrun=False, auto='first')
+		assert code == 0
+		prompt.assert_not_called()
+		assert not (home / 'The Office S01E01.mp4').exists()
+		assert_logged(capsys.readouterr().out, ('Auto', 'The Office (2005)'))
+
+	@patch('run.io.prompt_user')
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.search_series_page')
+	def test_auto_skip_logs_and_exits_nonzero(
+		self, search, get_episode, prompt, media_dirs, config_for_dirs, capsys
+	):
+		home, _ = media_dirs
+		self._setup(home, search, get_episode)
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			code = run.main(dryrun=False, auto='skip')
+		assert code == 1
+		prompt.assert_not_called()
+		assert (home / 'The Office S01E01.mp4').exists()
+		assert_logged(capsys.readouterr().out, ('Ambiguous', 'The Office S01E01.mp4: 2 matches'))
+
+	@patch('run.moviedb.search_series_page')
+	def test_auto_no_match_exits_nonzero(self, search, media_dirs, config_for_dirs):
+		home, _ = media_dirs
+		(home / 'The Office S01E01.mp4').write_text('video')
+		search.return_value = tmdb_page([])
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			assert run.main(dryrun=False, auto='first') == 1
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.search_series_page')
+	def test_auto_dryrun_preview_is_not_failure(
+		self, search, get_episode, media_dirs, config_for_dirs
+	):
+		home, _ = media_dirs
+		self._setup(home, search, get_episode)
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			assert run.main(dryrun=True, auto='first') == 0
+
+	def test_missing_config_exit_code(self, tmp_path, monkeypatch):
+		monkeypatch.chdir(tmp_path)
+		assert run.main(dryrun=False, auto='first') == 1
+		assert run.main(dryrun=False) == 0
