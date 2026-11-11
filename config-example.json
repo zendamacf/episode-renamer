@@ -3,5 +3,6 @@
     "HOME": "/home/user/to_sort/",
     "MOVED": "/home/user/to_sort/done/",
     "SUBTITLE_LANG": "en",
+    "PLATFORM": "plex",
     "RECURSIVE_SCAN": false
 }

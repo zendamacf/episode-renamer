@@ -9,6 +9,7 @@ import os
 import re
 import shutil
 from collections.abc import Callable
+from enum import Enum
 from typing import Any, TypedDict
 
 import log
@@ -18,6 +19,19 @@ class SubtitleCompanion(TypedDict):
 	filename: str
 	extension: str
 	lang: str | None
+
+
+class Platform(Enum):
+	plex = 'plex'
+	jellyfin = 'jellyfin'
+	emby = 'emby'
+	kodi = 'kodi'
+
+
+class PlatformTemplate(TypedDict):
+	show_folder: str
+	season_folder: str
+	episode: str
 
 
 class FileIOException(Exception):
@@ -32,9 +46,50 @@ SIDECAR_EXTENSIONS = frozenset({'nfo', 'jpg', 'png'})
 # Default language tag when the source subtitle has no language in its name.
 DEFAULT_SUBTITLE_LANG = 'en'
 
+DEFAULT_PLATFORM: Platform = Platform.plex
+# Folder and file name templates per media server. ``episode`` has no extension;
+# fields: show, year (folder only), season, episode, title.
+PLATFORM_TEMPLATES: dict[Platform, PlatformTemplate] = {
+	Platform.plex: {
+		'show_folder': '{show} ({year})',
+		'season_folder': 'Season {season}',
+		'episode': 'S{season:02d}E{episode:02d} - {title}',
+	},
+	Platform.jellyfin: {
+		'show_folder': '{show} ({year})',
+		'season_folder': 'Season {season:02d}',
+		'episode': '{show} S{season:02d}E{episode:02d} - {title}',
+	},
+	Platform.emby: {
+		'show_folder': '{show} ({year})',
+		'season_folder': 'Season {season:02d}',
+		'episode': '{show} - S{season:02d}E{episode:02d} - {title}',
+	},
+	Platform.kodi: {
+		'show_folder': '{show} ({year})',
+		'season_folder': 'Season {season:02d}',
+		'episode': '{show} - S{season:02d}E{episode:02d} - {title}',
+	},
+}
+
 
 def _normalize_directory(path: str) -> str:
 	return os.path.realpath(os.path.abspath(path))
+
+
+def resolve_platform(platform: str | Platform | None) -> Platform:
+	"""
+	Return the matching ``Platform`` (default Plex when None), or raise for an unknown one.
+	"""
+	if platform is None:
+		return DEFAULT_PLATFORM
+	if isinstance(platform, Platform):
+		return platform
+	try:
+		return Platform(str(platform).strip().lower())
+	except ValueError:
+		choices = ', '.join(p.value for p in Platform)
+		raise FileIOException(f'Unknown platform {platform!r}. Choose one of: {choices}.') from None
 
 
 def _validate_home_moved(home: str, moved: str) -> None:
@@ -67,6 +122,8 @@ def read_config(filename: str) -> dict:
 		raise FileIOException('Missing or empty config keys: {}'.format(', '.join(missing)))
 
 	_validate_home_moved(config['HOME'], config['MOVED'])
+	if 'PLATFORM' in config:
+		config['PLATFORM'] = resolve_platform(config['PLATFORM']).value
 	return config
 
 
@@ -309,13 +366,29 @@ def winsafe_filename(filename: str) -> str:
 	return re.sub(r'[\\/:"*?<>|]+', '', filename)
 
 
-def get_filename(filename: str, season: int, episode: int, episodename: str, extension: str) -> str:
+def _episode_basename(
+	platform: Platform, show: str, season: int, episode: int, episodename: str
+) -> str:
+	template = PLATFORM_TEMPLATES[platform]['episode']
+	return template.format(
+		show=winsafe_filename(show), season=season, episode=episode, title=episodename
+	)
+
+
+def get_filename(
+	filename: str,
+	season: int,
+	episode: int,
+	episodename: str,
+	extension: str,
+	*,
+	show: str = '',
+	platform: Platform = DEFAULT_PLATFORM,
+) -> str:
 	"""
 	Returns the new filename to use.
 	"""
-	season_str = f'{season:02d}'
-	episode_str = f'{episode:02d}'
-	new_filename = f'S{season_str}E{episode_str} - {episodename}.{extension}'
+	new_filename = f'{_episode_basename(platform, show, season, episode, episodename)}.{extension}'
 	log.info(filename, prefix='Current')
 	log.info(new_filename, prefix='New')
 	return winsafe_filename(new_filename)
@@ -328,25 +401,36 @@ def get_subtitle_filename(
 	episodename: str,
 	extension: str,
 	lang: str = DEFAULT_SUBTITLE_LANG,
+	*,
+	show: str = '',
+	platform: Platform = DEFAULT_PLATFORM,
 ) -> str:
 	"""
-	Returns the new subtitle filename (``SxxExx - Title.<lang>.ext``).
+	Returns the new subtitle filename (episode name plus ``.<lang>.ext``).
 	"""
-	season_str = f'{season:02d}'
-	episode_str = f'{episode:02d}'
-	new_filename = f'S{season_str}E{episode_str} - {episodename}.{lang}.{extension}'
+	base = _episode_basename(platform, show, season, episode, episodename)
+	new_filename = f'{base}.{lang}.{extension}'
 	log.info(filename, prefix='Current')
 	log.info(new_filename, prefix='New')
 	return winsafe_filename(new_filename)
 
 
 def get_sidecar_filename(
-	filename: str, season: int, episode: int, episodename: str, extension: str
+	filename: str,
+	season: int,
+	episode: int,
+	episodename: str,
+	extension: str,
+	*,
+	show: str = '',
+	platform: Platform = DEFAULT_PLATFORM,
 ) -> str:
 	"""
-	Returns the new sidecar filename (``SxxExx - Title.ext``).
+	Returns the new sidecar filename (episode name plus ``.ext``).
 	"""
-	return get_filename(filename, season, episode, episodename, extension)
+	return get_filename(
+		filename, season, episode, episodename, extension, show=show, platform=platform
+	)
 
 
 def move_file(from_path: str, to_path: str) -> None:
@@ -396,6 +480,7 @@ def rename_and_move(
 	show: str,
 	year: int | None,
 	season: int,
+	platform: Platform = DEFAULT_PLATFORM,
 ) -> tuple[str, bool]:
 	"""
 	Rename and sort the file into folders.
@@ -407,9 +492,14 @@ def rename_and_move(
 	safe_show = winsafe_filename(str(show))
 	if not safe_show:
 		raise FileIOException('Show name is empty after sanitization.')
-	folder_name = f'{safe_show} ({year})' if year is not None else safe_show
+	templates = PLATFORM_TEMPLATES[platform]
+	folder_name = (
+		templates['show_folder'].format(show=safe_show, year=year)
+		if year is not None
+		else safe_show
+	)
 	show_folder = os.path.join(new_directory, folder_name)
-	season_folder = os.path.join(show_folder, f'Season {season}')
+	season_folder = os.path.join(show_folder, templates['season_folder'].format(season=season))
 
 	os.makedirs(season_folder, exist_ok=True)
 
