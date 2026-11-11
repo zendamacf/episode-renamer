@@ -875,3 +875,73 @@ class TestPlatforms:
 		)
 		assert did_move
 		assert path == str(moved / 'Show (2005)' / season_dir / 'new.mkv')
+
+
+class TestMultiEpisode:
+	@pytest.mark.parametrize(
+		'filename, end',
+		[
+			('The Office S01E01E02.mkv', 2),
+			('The Office S01E01-E02.mkv', 2),
+			('The.Office.S01E01-E02.mkv', 2),
+			('The Office S01E01 - E02.mkv', 2),
+			('The Office S01E01E02E03.mkv', 3),
+			('The Office S01E01-E02-E03.mkv', 3),
+			('The Office S01E01-E03.mkv', 3),
+		],
+	)
+	def test_parses_range(self, filename, end):
+		parsed = io.parse_filename(filename)
+		assert parsed['name'] == 'The Office'
+		assert (parsed['season'], parsed['episode'], parsed['episode_end']) == (1, 1, end)
+
+	@pytest.mark.parametrize(
+		'filename',
+		[
+			'The Office S01E06 - Title.mkv',
+			'The Office S01E01.mkv',
+			'Show S01E01E01.mkv',
+			'Show S01E03E01.mkv',
+			'Show S01E01E02E04.mkv',
+		],
+	)
+	def test_single_episode_has_no_end(self, filename):
+		assert io.parse_filename(filename)['episode_end'] is None
+
+	@pytest.mark.parametrize(
+		'platform, expected',
+		[
+			(io.Platform.plex, 'S01E01-E02 - A - B.mkv'),
+			(io.Platform.jellyfin, 'Show S01E01-E02 - A - B.mkv'),
+			(io.Platform.emby, 'Show - S01E01-E02 - A - B.mkv'),
+			(io.Platform.kodi, 'Show - S01E01-E02 - A - B.mkv'),
+		],
+	)
+	def test_filename_range(self, platform, expected):
+		name = io.get_filename(
+			'x.mkv', 1, 1, 'A - B', 'mkv', show='Show', platform=platform, episode_end=2
+		)
+		assert name == expected
+
+	def test_subtitle_and_sidecar_range(self):
+		assert (
+			io.get_subtitle_filename('x.srt', 1, 1, 'A - B', 'srt', episode_end=2)
+			== 'S01E01-E02 - A - B.en.srt'
+		)
+		assert (
+			io.get_sidecar_filename('x.nfo', 1, 1, 'A - B', 'nfo', episode_end=2)
+			== 'S01E01-E02 - A - B.nfo'
+		)
+
+
+class TestEpisodeLabelTemplates:
+	def test_platform_can_override_range_style(self, monkeypatch):
+		custom = {
+			**io.PLATFORM_TEMPLATES[io.Platform.plex],
+			'episode_range_label': 'E{episode:02d}E{episode_end:02d}',
+		}
+		monkeypatch.setitem(io.PLATFORM_TEMPLATES, io.Platform.plex, custom)
+		assert io.get_filename('x.mkv', 1, 1, 'A - B', 'mkv', episode_end=2) == (
+			'S01E01E02 - A - B.mkv'
+		)
+		assert io.get_filename('x.mkv', 1, 1, 'A', 'mkv') == 'S01E01 - A.mkv'
