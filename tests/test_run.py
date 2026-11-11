@@ -1,4 +1,5 @@
 import json
+from typing import cast
 from unittest.mock import patch
 
 import pytest
@@ -1401,7 +1402,7 @@ class TestAutoMode:
 
 
 class TestNumbering:
-	CONFIG = {'MOVIEDB_KEY': 'k'}
+	CONFIG = cast(run.Config, {'MOVIEDB_KEY': 'k'})
 
 	def _file(self, **extra):
 		return {'season': 1, 'episode': 5, 'rel_path': 'Show - 105.mkv', 'absolute': 105, **extra}
@@ -1457,3 +1458,60 @@ class TestNumbering:
 			patch('run.moviedb.get_absolute_episode', return_value=(3, 2)),
 		):
 			assert run._resolve_numbering(self._file(), OFFICE, self.CONFIG, auto) == expected
+
+
+class TestPlatformOption:
+	def _setup(self, home, search, get_episode):
+		(home / 'The Office S01E01.mp4').write_text('video')
+		(home / 'The Office S01E01.en.srt').write_text('sub')
+		search.return_value = tmdb_page([OFFICE])
+		get_episode.return_value = 'Pilot'
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.search_series_page')
+	def test_default_is_plex(self, search, get_episode, media_dirs, config_for_dirs):
+		home, moved = media_dirs
+		self._setup(home, search, get_episode)
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			assert run.main(dryrun=False) == 0
+		season = moved / 'The Office (2005)' / 'Season 1'
+		assert (season / 'S01E01 - Pilot.mp4').exists()
+		assert (season / 'S01E01 - Pilot.en.srt').exists()
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.search_series_page')
+	def test_config_platform(self, search, get_episode, media_dirs, config_for_dirs):
+		home, moved = media_dirs
+		self._setup(home, search, get_episode)
+		config_for_dirs['PLATFORM'] = 'kodi'
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			assert run.main(dryrun=False) == 0
+		season = moved / 'The Office (2005)' / 'Season 01'
+		assert (season / 'The Office - S01E01 - Pilot.mp4').exists()
+		assert (season / 'The Office - S01E01 - Pilot.en.srt').exists()
+
+	@patch('run.moviedb.get_episode')
+	@patch('run.moviedb.search_series_page')
+	def test_cli_overrides_config(self, search, get_episode, media_dirs, config_for_dirs):
+		home, moved = media_dirs
+		self._setup(home, search, get_episode)
+		config_for_dirs['PLATFORM'] = 'kodi'
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			assert run.main(dryrun=False, platform='Jellyfin') == 0
+		season = moved / 'The Office (2005)' / 'Season 01'
+		assert (season / 'The Office S01E01 - Pilot.mp4').exists()
+
+	def test_unknown_platform_rejected(self, media_dirs, config_for_dirs, capsys):
+		home, _ = media_dirs
+		(home / 'The Office S01E01.mp4').write_text('video')
+		with patch('run.io.read_config', return_value=config_for_dirs):
+			assert run.main(dryrun=False, platform='netflix', auto='first') == 1
+		assert_logged(capsys.readouterr().out, ('Error', 'Unknown platform'))
+		assert (home / 'The Office S01E01.mp4').exists()
+
+	def test_cli_parser_rejects_unknown(self):
+		with pytest.raises(SystemExit):
+			run.parser.parse_args(['--platform', 'netflix'])
+
+	def test_cli_parser_accepts_case_insensitive(self):
+		assert run.parser.parse_args(['--platform', 'EMBY']).platform == 'emby'

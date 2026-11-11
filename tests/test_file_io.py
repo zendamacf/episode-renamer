@@ -810,3 +810,68 @@ class TestAbsolute:
 			monkeypatch.setattr('builtins.input', lambda _, b=bad: b)
 			with pytest.raises(io.FileIOException):
 				io.prompt_numbering('x', choices)
+
+
+class TestPlatforms:
+	def test_resolve_default_and_case(self):
+		assert io.resolve_platform(None) is io.Platform.plex
+		assert io.resolve_platform(' Jellyfin ') is io.Platform.jellyfin
+		assert io.resolve_platform(io.Platform.emby) is io.Platform.emby
+
+	def test_resolve_unknown(self):
+		with pytest.raises(io.FileIOException, match='Unknown platform'):
+			io.resolve_platform('netflix')
+
+	def test_read_config_rejects_unknown_platform(self, tmp_path, sample_config):
+		path = tmp_path / 'config.json'
+		path.write_text(json.dumps({**sample_config, 'PLATFORM': 'nope'}))
+		with pytest.raises(io.FileIOException, match='Unknown platform'):
+			io.read_config(str(path))
+
+	def test_read_config_normalizes_platform(self, tmp_path, sample_config):
+		path = tmp_path / 'config.json'
+		path.write_text(json.dumps({**sample_config, 'PLATFORM': 'KODI'}))
+		assert io.read_config(str(path))['PLATFORM'] == 'kodi'
+
+	@pytest.mark.parametrize(
+		('platform', 'expected'),
+		[
+			(io.Platform.plex, 'S01E02 - Pilot.mkv'),
+			(io.Platform.jellyfin, 'Show S01E02 - Pilot.mkv'),
+			(io.Platform.emby, 'Show - S01E02 - Pilot.mkv'),
+			(io.Platform.kodi, 'Show - S01E02 - Pilot.mkv'),
+		],
+	)
+	def test_get_filename(self, platform, expected):
+		result = io.get_filename('o.mkv', 1, 2, 'Pilot', 'mkv', show='Show', platform=platform)
+		assert result == expected
+
+	def test_subtitle_and_sidecar_follow_platform(self):
+		sub = io.get_subtitle_filename(
+			'o.srt', 1, 2, 'Pilot', 'srt', 'fr', show='Show', platform=io.Platform.emby
+		)
+		assert sub == 'Show - S01E02 - Pilot.fr.srt'
+		side = io.get_sidecar_filename(
+			'o.nfo', 1, 2, 'Pilot', 'nfo', show='Show', platform=io.Platform.kodi
+		)
+		assert side == 'Show - S01E02 - Pilot.nfo'
+
+	@pytest.mark.parametrize(
+		('platform', 'season_dir'),
+		[
+			(io.Platform.plex, 'Season 1'),
+			(io.Platform.jellyfin, 'Season 01'),
+			(io.Platform.emby, 'Season 01'),
+			(io.Platform.kodi, 'Season 01'),
+		],
+	)
+	def test_rename_and_move_folders(self, tmp_path, platform, season_dir):
+		home, moved = tmp_path / 'home', tmp_path / 'moved'
+		home.mkdir()
+		moved.mkdir()
+		(home / 'a.mkv').write_text('x')
+		path, did_move = io.rename_and_move(
+			str(home), 'a.mkv', str(moved), 'new.mkv', 'Show', 2005, 1, platform
+		)
+		assert did_move
+		assert path == str(moved / 'Show (2005)' / season_dir / 'new.mkv')

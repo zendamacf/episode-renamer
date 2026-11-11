@@ -34,6 +34,7 @@ Edit `config.json` with your TMDB API key and directory paths.
 | `HOME` | Directory containing unsorted episode files |
 | `MOVED` | Destination root for renamed and sorted files |
 | `SUBTITLE_LANG` | Optional. Default language tag for renamed subtitles when the source file has no tag (default: `en`). Overridden by the `SUBTITLE_LANG` environment variable. |
+| `PLATFORM` | Optional. Media server naming layout: `plex` (default), `jellyfin`, `emby`, or `kodi`. Overridden by `--platform`. An unknown value is rejected. |
 | `RECURSIVE_SCAN` | Optional. When `true`, scan nested folders under `HOME` for videos (default: `false`). |
 
 ## Usage
@@ -45,6 +46,7 @@ python run.py --quiet   # errors and final summary only (for cron/scripts)
 python run.py --auto    # never prompt; exit 1 if any file is skipped or fails
 python run.py --auto skip  # skip files with several TMDB matches
 python run.py --recursive  # scan nested folders under HOME (overrides RECURSIVE_SCAN)
+python run.py --platform jellyfin  # use another media server's layout (overrides PLATFORM)
 python run.py --history # list recorded rename batches
 python run.py --undo    # undo the last rename batch
 python run.py --undo 2  # undo the last two rename batches
@@ -99,7 +101,7 @@ Dots in series names are treated as spaces (e.g. `The.Office.S01E01.mp4` → "Th
 
 ### Output structure
 
-Files are renamed to `S01E01 - Episode Title.ext` (subtitles: `S01E01 - Episode Title.en.ext`) and moved under:
+Folder and file names follow the selected platform (`PLATFORM` config key or `--platform`; the option wins). The default, `plex`, names files `S01E01 - Episode Title.ext` (subtitles: `S01E01 - Episode Title.en.ext`) and moves them under:
 
 ```
 MOVED/
@@ -108,6 +110,15 @@ MOVED/
       S01E01 - Pilot.mp4
       S01E01 - Pilot.en.srt
 ```
+
+| Platform | Season folder | Episode file |
+| --- | --- | --- |
+| `plex` (default) | `Season 1` | `S01E01 - Pilot.mp4` |
+| `jellyfin` | `Season 01` | `Show Name S01E01 - Pilot.mp4` |
+| `emby` | `Season 01` | `Show Name - S01E01 - Pilot.mp4` |
+| `kodi` | `Season 01` | `Show Name - S01E01 - Pilot.mp4` |
+
+All platforms use the `Show Name (2005)` show folder (just `Show Name` when no year is known). Subtitles and sidecar files follow the same pattern.
 
 When multiple TMDB series match a filename, the tool loads the first TMDB search page and prompts for the correct one. Enter `n` at the prompt to load the next page (up to 3 pages per search, to limit API usage). Enter `i` to skip a file. Series choices are saved in `series_cache.json` for later runs.
 

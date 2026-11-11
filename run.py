@@ -3,7 +3,7 @@
 import argparse
 import os
 import sys
-from typing import Literal
+from typing import Literal, TypedDict
 
 import file_io as io
 import history
@@ -37,6 +37,12 @@ parser.add_argument(
 	'result (first, default) or skip the file (skip). Exits non-zero if a file is skipped '
 	'or fails.',
 )
+parser.add_argument(
+	'--platform',
+	type=str.lower,
+	choices=tuple(p.value for p in io.Platform),
+	help='Media server naming layout (overrides config PLATFORM; default: plex).',
+)
 mode = parser.add_mutually_exclusive_group()
 mode.add_argument(
 	'--undo',
@@ -53,6 +59,15 @@ mode.add_argument(
 )
 
 
+class Config(TypedDict):
+	HOME: str
+	MOVED: str
+	MOVIEDB_KEY: str
+	SUBTITLE_LANG: str
+	PLATFORM: io.Platform
+	RECURSIVE_SCAN: bool
+
+
 _CONFIG_PATH = 'config.json'
 _CONFIG_HINT = (
 	f'{_CONFIG_PATH} not found. Copy config-example.json to {_CONFIG_PATH} '
@@ -61,18 +76,28 @@ _CONFIG_HINT = (
 )
 
 
-def _load_config() -> dict | None:
+def _load_config() -> Config | None:
 	"""
 	Load config.json for rename/undo. Returns None after logging a user-facing error.
 	"""
 	try:
-		config = io.read_config(_CONFIG_PATH)
+		raw = io.read_config(_CONFIG_PATH)
+		platform = io.resolve_platform(raw.get('PLATFORM'))
 	except FileNotFoundError:
 		log.error(_CONFIG_HINT, prefix='Error')
 		return None
 	except io.FileIOException as e:
 		log.error(str(e), prefix='Error')
 		return None
+
+	config: Config = {
+		'HOME': raw['HOME'],
+		'MOVED': raw['MOVED'],
+		'MOVIEDB_KEY': raw['MOVIEDB_KEY'],
+		'SUBTITLE_LANG': raw.get('SUBTITLE_LANG') or io.DEFAULT_SUBTITLE_LANG,
+		'PLATFORM': platform,
+		'RECURSIVE_SCAN': bool(raw.get('RECURSIVE_SCAN')),
+	}
 
 	env_key = os.environ.get('MOVIEDB_KEY')
 	if env_key:
@@ -82,8 +107,6 @@ def _load_config() -> dict | None:
 	env_lang = os.environ.get('SUBTITLE_LANG')
 	if env_lang:
 		config['SUBTITLE_LANG'] = env_lang
-	elif not config.get('SUBTITLE_LANG'):
-		config['SUBTITLE_LANG'] = io.DEFAULT_SUBTITLE_LANG
 	return config
 
 
@@ -148,7 +171,7 @@ def _narrow_series_by_year(series_list: list, year: int | None) -> list:
 
 
 def _resolve_numbering(
-	f: dict, series: dict, config: dict, auto: str | None
+	f: dict, series: dict, config: Config, auto: str | None
 ) -> tuple[int, int, str | None] | None:
 	"""
 	Return (season, episode, TMDB title) for a parsed file, or None to skip it.
@@ -192,7 +215,7 @@ def _resolve_numbering(
 
 def _process_file(
 	f: dict,
-	config: dict,
+	config: Config,
 	matches: dict,
 	session_resolved: set[tuple],
 	dryrun: bool,
@@ -296,7 +319,17 @@ def _process_file(
 		)
 		return 'skipped'
 
-	new_filename = io.get_filename(f['filename'], season, episode, episodename, f['extension'])
+	platform = config['PLATFORM']
+	show_name = chosen['name']
+	new_filename = io.get_filename(
+		f['filename'],
+		season,
+		episode,
+		episodename,
+		f['extension'],
+		show=show_name,
+		platform=platform,
+	)
 	video_rel = f['rel_path']
 	source_dir = _source_directory(config['HOME'], video_rel)
 	video_name = _video_basename(video_rel)
@@ -312,6 +345,8 @@ def _process_file(
 				episodename,
 				sub['extension'],
 				lang=sub.get('lang') or default_sub_lang,
+				show=show_name,
+				platform=platform,
 			),
 		)
 		for sub in companions
@@ -320,7 +355,13 @@ def _process_file(
 		(
 			side['filename'],
 			io.get_sidecar_filename(
-				side['filename'], f['season'], f['episode'], episodename, side['extension']
+				side['filename'],
+				f['season'],
+				f['episode'],
+				episodename,
+				side['extension'],
+				show=show_name,
+				platform=platform,
 			),
 		)
 		for side in io.find_sidecar_files(source_dir, video_name)
@@ -348,6 +389,7 @@ def _process_file(
 		chosen['name'],
 		chosen['year'],
 		season,
+		platform,
 	)
 	if moved_video:
 		moves.append({'src': src, 'dest': dest})
@@ -363,6 +405,7 @@ def _process_file(
 				chosen['name'],
 				chosen['year'],
 				season,
+				platform,
 			)
 			if moved_sub:
 				moves.append({'src': sub_src, 'dest': sub_dest})
@@ -511,6 +554,7 @@ def main(
 	dryrun: bool,
 	recursive: bool = False,
 	auto: str | None = None,
+	platform: str | io.Platform | None = None,
 ) -> int:
 	"""
 	Main rename function. Returns the process exit code: non-zero only with ``auto``
@@ -525,7 +569,14 @@ def main(
 	if config is None:
 		return failure_code
 
-	scan_recursive = recursive or bool(config.get('RECURSIVE_SCAN'))
+	try:
+		if platform is not None:
+			config['PLATFORM'] = io.resolve_platform(platform)
+	except io.FileIOException as e:
+		log.error(str(e), prefix='Error')
+		return failure_code
+
+	scan_recursive = recursive or config['RECURSIVE_SCAN']
 	found = io.find_files(config['HOME'], recursive=scan_recursive)
 	if len(found) == 0:
 		log.warn('No files found', prefix='Skip')
@@ -586,4 +637,6 @@ if __name__ == '__main__':
 	elif args.undo is not None:
 		undo_batches(args.undo, args.dryrun)
 	else:
-		sys.exit(main(args.dryrun, recursive=args.recursive, auto=args.auto))
+		sys.exit(
+			main(args.dryrun, recursive=args.recursive, auto=args.auto, platform=args.platform)
+		)
