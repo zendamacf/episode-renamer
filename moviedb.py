@@ -222,3 +222,29 @@ def get_episode(seriesid: int, season: int, episode: int, apikey: str) -> str | 
 	if response:
 		return response.get('name')
 	return None
+
+
+# TMDB episode group type for "Absolute order".
+ABSOLUTE_GROUP_TYPE = 2
+
+
+def get_absolute_episode(seriesid: int, absolute: int, apikey: str) -> tuple[int, int] | None:
+	"""
+	Map an absolute episode number to (season, episode) using the series'
+	TMDB "Absolute order" episode group. Returns None when there is no such group
+	or the number is out of range.
+	"""
+	listing = _request(f'/tv/{seriesid}/episode_groups', params={'api_key': apikey})
+	group = next(
+		(g for g in listing.get('results', []) if g.get('type') == ABSOLUTE_GROUP_TYPE), None
+	)
+	if group is None:
+		return None
+	detail = _request(f'/tv/episode_group/{group["id"]}', params={'api_key': apikey})
+	episodes: list[dict[str, Any]] = []
+	for sub in sorted(detail.get('groups', []), key=lambda g: g.get('order', 0)):
+		episodes.extend(sorted(sub.get('episodes', []), key=lambda e: e.get('order', 0)))
+	if absolute < 1 or absolute > len(episodes):
+		return None
+	match = episodes[absolute - 1]
+	return match['season_number'], match['episode_number']

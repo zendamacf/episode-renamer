@@ -1,6 +1,7 @@
 import json
 from unittest.mock import patch
 
+import pytest
 from helpers import OFFICE, OFFICE_UK, assert_logged
 
 import file_io as io
@@ -1397,3 +1398,62 @@ class TestAutoMode:
 		monkeypatch.chdir(tmp_path)
 		assert run.main(dryrun=False, auto='first') == 1
 		assert run.main(dryrun=False) == 0
+
+
+class TestNumbering:
+	CONFIG = {'MOVIEDB_KEY': 'k'}
+
+	def _file(self, **extra):
+		return {'season': 1, 'episode': 5, 'rel_path': 'Show - 105.mkv', 'absolute': 105, **extra}
+
+	def _titles(self, mapped, titles):
+		return patch('run.moviedb.get_episode', side_effect=lambda _i, s, e, _k: titles.get((s, e)))
+
+	def test_plain_episode(self):
+		f = {'season': 1, 'episode': 1, 'rel_path': 'x'}
+		with self._titles(None, {(1, 1): 'Special'}):
+			assert run._resolve_numbering(f, OFFICE, self.CONFIG, None) == (1, 1, 'Special')
+
+	def test_no_group_or_same_mapping(self):
+		with (
+			self._titles(None, {(1, 5): 'A'}),
+			patch('run.moviedb.get_absolute_episode', side_effect=[None, (1, 5)]),
+		):
+			for _ in range(2):
+				assert run._resolve_numbering(self._file(), OFFICE, self.CONFIG, None) == (
+					1,
+					5,
+					'A',
+				)
+
+	def test_mapped_missing_title_keeps_packed(self):
+		with (
+			self._titles(None, {(1, 5): 'A'}),
+			patch('run.moviedb.get_absolute_episode', return_value=(3, 2)),
+		):
+			assert run._resolve_numbering(self._file(), OFFICE, self.CONFIG, None) == (1, 5, 'A')
+
+	def test_packed_missing_uses_mapped(self):
+		with (
+			self._titles(None, {(3, 2): 'B'}),
+			patch('run.moviedb.get_absolute_episode', return_value=(3, 2)),
+		):
+			assert run._resolve_numbering(self._file(), OFFICE, self.CONFIG, None) == (3, 2, 'B')
+
+	@pytest.mark.parametrize(
+		'auto, answer, expected',
+		[
+			('first', None, (1, 5, 'A')),
+			('skip', None, None),
+			(None, '2', (3, 2, 'B')),
+			(None, '1', (1, 5, 'A')),
+			(None, 'i', None),
+		],
+	)
+	def test_ambiguous(self, auto, answer, expected, monkeypatch):
+		monkeypatch.setattr('builtins.input', lambda _: answer)
+		with (
+			self._titles(None, {(1, 5): 'A', (3, 2): 'B'}),
+			patch('run.moviedb.get_absolute_episode', return_value=(3, 2)),
+		):
+			assert run._resolve_numbering(self._file(), OFFICE, self.CONFIG, auto) == expected
