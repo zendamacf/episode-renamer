@@ -82,13 +82,15 @@ The tool parses series name, season, and episode from filenames matching common 
 
 When a year appears between the show name and season/episode marker, it is used to prefer the matching TMDB series and skip the interactive prompt when only one result matches that year. If multiple TMDB results share the same year, the tool still prompts.
 
-Supported video extensions: `mp4`, `mkv`, `avi`, `flv`, `m4v`.
+Supported video extensions: `mp4`, `mkv`, `avi`, `flv`, `m4v`, `ts`, `wmv`, `mov`, `webm`.
 
 Matching subtitle companions next to a video (same basename, optionally with a language tag) are moved with it:
 
 - `The Office S01E01.srt` → `S01E01 - Pilot.en.srt` (uses `SUBTITLE_LANG` when no tag is present)
 - `The Office S01E01.fr.srt` → `S01E01 - Pilot.fr.srt` (preserves the source language tag)
 - `The Office S01E01.en.srt` → `S01E01 - Pilot.en.srt`
+
+Sidecar files that share the video's basename (`.nfo` and `.jpg`/`.png` artwork) are also moved and renamed to match (e.g. `The Office S01E01.nfo` → `S01E01 - Pilot.nfo`).
 
 Supported subtitle extensions: `srt`, `ass`, `ssa`, `vtt`, `sub`. Renamed subtitles use `.<lang>.<ext>` where `lang` comes from the source filename when present, otherwise from `SUBTITLE_LANG` (default `en`).
 
